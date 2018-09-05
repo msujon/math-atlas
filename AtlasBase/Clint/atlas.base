@@ -37215,13 +37215,15 @@ int main(int nargs, char **args)
          void B2BLK(const size_t, const size_t, const SCALAR,
                     const TYPE*, const size_t, TYPE*, TYPE*);
          #endif
+         void BLK2C(const size_t, const size_t, const TYPE*, const TYPE*,
+               const TYPE*, const TYPE*, TYPE*, const size_t);
          void AMM_bn(ATL_CSZT,ATL_CSZT,ATL_CSZT,const TYPE*,const TYPE*,
                      TYPE*, const TYPE*, const TYPE*, const TYPE*);
       #else
          #if SD_Right == 1
-         void A2BLK(const size_t, const size_t, const SCALAR,
+         void B2BLK(const size_t, const size_t, const SCALAR,
                     const TYPE*, const size_t, TYPE*);
-         void B2BLK(const size_t, const SCALAR,
+         void A2BLK(const size_t, const SCALAR,
                     const TYPE*, const size_t, TYPE*);
          #else
          void A2BLK(const size_t, const SCALAR,
@@ -37230,6 +37232,8 @@ int main(int nargs, char **args)
                     const TYPE*, const size_t, TYPE*);
          #endif
       #endif
+         void BLK2C(const size_t, const size_t, const SCALAR, const TYPE*,
+               const SCALAR, const TYPE*, const size_t);
          void AMM_b0(ATL_CSZT,ATL_CSZT,ATL_CSZT,const TYPE*,const TYPE*,
                      TYPE*, const TYPE*, const TYPE*, const TYPE*);
          void AMM_b1(ATL_CSZT,ATL_CSZT,ATL_CSZT,const TYPE*,const TYPE*,

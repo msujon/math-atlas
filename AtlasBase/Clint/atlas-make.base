@@ -3616,7 +3616,7 @@ trsmKPRE=trsmK
 	make gen_blk2C rt=cpCtmp.c pre=@(pre) vlen=$(vlen) mu=$(mu) nu=$(nu) \
 	   cpvlen=$(cpvlen) alpha=1 beta=0; \
 	@(KCC) @(KCFLAGS) -D@(utp)=1 -c cpCtmp.c \
-           	    -DATL_USERCPMM=C2BLK ; \
+           	    -DATL_USERCPMM=BLK2C ; \
 	if [ "X$(sd)" = "XL" ] ; then \
        	   make gen_@(rtpr)AN2blk UR=$(nu) kmaj=$(kmaj) alpha=1 rt=cpBtmp.c ; \
 	   @(KCC) @(KCFLAGS) -D@(utp)=1 -c cpBtmp.c \
