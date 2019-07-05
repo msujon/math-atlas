@@ -224,6 +224,7 @@ enum inst
           /* starting in vr0[0], and ending in vr1[N], N=veclen-1 */
    VDHIHALF,                  /* vr0~2[1,0]: vr0[0] = vr1[1], vr0[1] = vr2[1] */
    VDLOHALF,                  /* vr0~2[1,0]: vr0[0] = vr1[0], vr0[1] = vr2[0] */
+   VDMOVHALF,                 /* [vr0], [vr1], imm */
 /*
  * Single precision vector instructions
  * [memA] is a vector-aligned mem @ [mem] is any alignment
@@ -274,6 +275,7 @@ enum inst
           /* starting in vr0[0], and ending in vr1[N], N=veclen-1 */
    VFHIHALF,                  /* vr0~2[1,0]: vr0[0] = vr1[1], vr0[1] = vr2[1] */
    VFLOHALF,                  /* vr0~2[1,0]: vr0[0] = vr1[0], vr0[1] = vr2[0] */
+   VFMOVHALF,                 /* [vr0], [vr1], imm */
 /*
  * x86-only instructions
  */
@@ -636,6 +638,7 @@ char *instmnem[] =
    "VDSHUF",
    "VDHIHALF",
    "VDLOHALF",
+   "VDMOVHALF",
 /*
  * Single precision vector inst
  */
@@ -673,6 +676,7 @@ char *instmnem[] =
    "VFSHUF",
    "VFHIHALF",
    "VFLOHALF",
+   "VFMOVHALF",
 /*
  * x86-only instructions
  */
