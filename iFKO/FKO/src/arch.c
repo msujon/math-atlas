@@ -28,12 +28,16 @@ short type2len(int type)
    #endif
 #endif
    if (type == T_DOUBLE) len = 8;
+#ifdef X86
    else if (IS_VEC(type))
-      #if defined(X86) && defined(AVX)
+      #if defined(AVX512)
+         len = 64;
+      #elif defined(AVX)
          len = 32;
       #else      
          len = 16;
       #endif
+#endif
    return(len);
 }
 
@@ -49,12 +53,16 @@ short type2shift(int type)
    #endif
 #endif
    if (type == T_DOUBLE) len = 3;
+#ifdef X86
    else if (IS_VEC(type))
-      #if defined(X86) && defined(AVX)
+      #if defined(AVX512)
+         len = 6;
+      #elif defined(AVX)
          len = 5;
       #else
          len = 4;
       #endif
+#endif
    return(len);
 }
 
@@ -65,17 +73,22 @@ short vtype2elem(int type)
  */
 {
    short nelem;
-   #if defined(AVX)
-      if (type == T_VDOUBLE)
-         nelem = 4;
-      else if (type == T_VFLOAT) 
+   if (type == T_VDOUBLE)
+      #if defined(AVX512)
          nelem = 8;
-   #else
-      if (type == T_VDOUBLE)
-         nelem = 2;
-      else if (type == T_VFLOAT) 
+      #elif defined(AVX)
          nelem = 4;
-   #endif
+      #else
+         nelem = 2;
+      #endif
+   else if (type == T_VFLOAT) 
+      #if defined(AVX512)
+         nelem = 16;
+      #elif defined(AVX)
+         nelem = 8;
+      #else /* SSE */
+         nelem = 4;
+      #endif
    else
       fko_error(__LINE__, "Must be a vector type!");
    return nelem;
@@ -86,7 +99,9 @@ short GetVecAlignByte()
  * alignment needed in bytes for vector unit
  */
 {
-   #if defined(AVX)
+   #if defined(AVX512)
+      return(64);
+   #elif defined(AVX)
       return(32);
    #else
       return(16);
