@@ -6,23 +6,39 @@
 #include "fko_arch.h"
 #include <stdarg.h>
 
-#ifdef AVX512
-   #ifdef X86_64
-      extern char *archymmregs[NFR];
-      extern char *archxmmregs[NFR];
-   #else
-      extern char *archymmregs[TNFR];
-      extern char *archxmmregs[TNFR];
-   #endif      
+#ifdef X86
+   #if defined(AVX512)
+      #ifdef X86_64
+         extern char *archymmregs[NFR];
+         extern char *archxmmregs[NFR];
+      #else
+         extern char *archymmregs[TNFR];
+         extern char *archxmmregs[TNFR];
+      #endif      
+      #define archvf16regs archvfregs  
+      #define archvf8regs archymmregs  
+      #define archvf4regs archxmmregs  
+      #define archvd8regs archvdregs  
+      #define archvd4regs archymmregs  
+      #define archvd2regs archxmmregs  
+   #endif
+   #elif defined(AVX) 
+      #ifdef X86_64
+         extern char *archxmmregs[NFR];
+      #else
+         extern char *archxmmregs[TNFR];
+      #endif      
+      #define archvf8regs archvfregs  
+      #define archvf4regs archxmmregs  
+      #define archvd4regs archvdregs  
+      #define archvd2regs archxmmregs  
+   #endif
+   #else /* SSE*/
+      #define archvf4regs archvfregs  
+      #define archvd2regs archvdregs  
+   #endif
 #endif
 
-#ifdef AVX 
-   #ifdef X86_64
-      extern char *archxmmregs[NFR];
-   #else
-      extern char *archxmmregs[TNFR];
-   #endif      
-#endif
 
 struct assmln *NewAssln(char *ln)
 {
@@ -2025,6 +2041,7 @@ struct assmln *lil2ass(BBLOCK *bbase)
 /*
  *    hybrid inst: fr1 = fr2 & vfr3/mem
  */
+      #if 0
       case VFSABS:
             #if defined(AVX512) || defined(AVX)
                if (op3 >= 0)
@@ -2052,7 +2069,48 @@ struct assmln *lil2ass(BBLOCK *bbase)
             #endif
 
          break;
+      #endif
+      #ifdef AVX512
+      case VFSABS_W16:
+               if (op3 >= 0)
+                  ap->next = PrintAssln("\tvandps\t%s,%s,%s\n", 
+                                        GetDeref(op3),
+	                                archfregs[-FREGBEG-op2],
+	                                archfregs[-FREGBEG-op1]);
+               else
+                  ap->next = PrintAssln("\tvandps\t%s, %s, %s\n", 
+	                                archvf16regs[-VFREGBEG-op3],
+	                                archfregs[-FREGBEG-op2],
+	                                archfregs[-FREGBEG-op1]);
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VFSABS_W8:
+               if (op3 >= 0)
+                  ap->next = PrintAssln("\tvandps\t%s,%s,%s\n", 
+                                        GetDeref(op3),
+	                                archfregs[-FREGBEG-op2],
+	                                archfregs[-FREGBEG-op1]);
+               else
+                  ap->next = PrintAssln("\tvandps\t%s, %s, %s\n", 
+	                                archvf8regs[-VFREGBEG-op3],
+	                                archfregs[-FREGBEG-op2],
+	                                archfregs[-FREGBEG-op1]);
+         break;
+      #endif
    #endif
+      case VFSABS_W4:
+               assert(op2 == op1);
+               if (op3 >= 0)
+                  ap->next = PrintAssln("\tandps\t%s,%s\n", 
+                                        /*GetDeref(SToff[DTabs-1].sa[2]),*/
+                                        GetDeref(op3),
+	                                archfregs[-FREGBEG-op1]);
+               else
+                  ap->next = PrintAssln("\tandps\t%s,%s\n", 
+	                                archvf4regs[-VFREGBEG-op3],
+	                                archfregs[-FREGBEG-op1]);
+         break;
       case FABS:
          #ifdef X86
 /*
@@ -2101,6 +2159,7 @@ struct assmln *lil2ass(BBLOCK *bbase)
 /*
  *    hybrid inst: fr1 = fr2 & vfr3/mem
  */
+      #if 0
       case VDSABS:
             #if defined(AVX512) || defined(AVX)
                if (op3 >= 0) /* need to check the usage */
@@ -2143,6 +2202,59 @@ struct assmln *lil2ass(BBLOCK *bbase)
                                         archvdregs[-VDREGBEG-op3],
 	                                archdregs[-DREGBEG-op1]);
                #endif
+         break;
+      #endif
+      #ifdef AVX512
+      case VDSABS_W8:
+               if (op3 >= 0) /* need to check the usage */
+                  ap->next = PrintAssln("\tvandpd\t%s,%s,%s\n",
+                                        /*GetDeref(SToff[DTabsd-1].sa[2]),*/
+                                        GetDeref(op3),
+                                        archdregs[-DREGBEG-op2],
+	                                archdregs[-DREGBEG-op1]);
+               else
+               {
+                  op3 = -op3;
+                  assert (op3 >= VDREGBEG && op3 < VDREGEND);  
+                  op3 = -op3;
+                  ap->next = PrintAssln("\tvandpd\t%s,%s,%s\n",
+                                        archvd8regs[-VDREGBEG-op3],
+                                        archdregs[-DREGBEG-op2],
+	                                archdregs[-DREGBEG-op1]);
+               }
+         break;
+      #endif  
+      #if defined (AVX512) || defined(AVX)
+      case VDSABS_W4:
+               if (op3 >= 0) /* need to check the usage */
+                  ap->next = PrintAssln("\tvandpd\t%s,%s,%s\n",
+                                        /*GetDeref(SToff[DTabsd-1].sa[2]),*/
+                                        GetDeref(op3),
+                                        archdregs[-DREGBEG-op2],
+	                                archdregs[-DREGBEG-op1]);
+               else
+               {
+                  op3 = -op3;
+                  assert (op3 >= VDREGBEG && op3 < VDREGEND);  
+                  op3 = -op3;
+                  ap->next = PrintAssln("\tvandpd\t%s,%s,%s\n",
+                                        archvd4regs[-VDREGBEG-op3],
+                                        archdregs[-DREGBEG-op2],
+	                                archdregs[-DREGBEG-op1]);
+               }
+         break;
+      #endif
+      case VDSABS_W2:
+               assert(op1==op2);
+               if (op3 >= 0)
+                  ap->next = PrintAssln("\tandpd\t%s,%s\n",
+                                        /*GetDeref(SToff[DTabsd-1].sa[2]),*/
+                                        GetDeref(op3),
+	                                archdregs[-DREGBEG-op1]);
+               else
+                  ap->next = PrintAssln("\tandpd\t%s,%s\n",
+                                        archvdregs[-VDREGBEG-op3],
+	                                archdregs[-DREGBEG-op1]);
          break;
    #endif
       case FABSD:
@@ -2192,6 +2304,7 @@ struct assmln *lil2ass(BBLOCK *bbase)
 /*
  *    hybrid inst: fr1 = fr2 xor vfr3/mem
  */
+      #if 0
       case VFSNEG:
             #if defined(AVX512) || defined(AVX)
                if (op3 >= 0)
@@ -2217,6 +2330,46 @@ struct assmln *lil2ass(BBLOCK *bbase)
 	                                archvfregs[-VFREGBEG-op3],
 	                                archfregs[-FREGBEG-op1]);
             #endif
+            break;
+      #endif
+      #ifdef AVX512
+      case VFSNEG_W16:
+               if (op3 >= 0)
+                  ap->next = PrintAssln("\tvxorps\t%s,%s,%s\n", 
+                                        GetDeref(op3),
+	                                archfregs[-FREGBEG-op2],
+	                                archfregs[-FREGBEG-op1]);
+               else
+                  ap->next = PrintAssln("\tvxorps\t%s,%s,%s\n", 
+	                                archvf16regs[-VFREGBEG-op3],
+	                                archfregs[-FREGBEG-op2],
+	                                archfregs[-FREGBEG-op1]);
+            break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VFSNEG_W8:
+               if (op3 >= 0)
+                  ap->next = PrintAssln("\tvxorps\t%s,%s,%s\n", 
+                                        GetDeref(op3),
+	                                archfregs[-FREGBEG-op2],
+	                                archfregs[-FREGBEG-op1]);
+               else
+                  ap->next = PrintAssln("\tvxorps\t%s,%s,%s\n", 
+	                                archvf8regs[-VFREGBEG-op3],
+	                                archfregs[-FREGBEG-op2],
+	                                archfregs[-FREGBEG-op1]);
+            break;
+      #endif
+      case VFSNEG_W4: 
+               assert(op2 == op1);
+               if (op3 >= 0)
+                  ap->next = PrintAssln("\txorps\t%s,%s\n", 
+                                        GetDeref(op3),
+	                                archfregs[-FREGBEG-op1]);
+               else
+                  ap->next = PrintAssln("\txorps\t%s,%s\n", 
+	                                archvf4regs[-VFREGBEG-op3],
+	                                archfregs[-FREGBEG-op1]);
             break;
    #endif
       case FNEG:
@@ -2263,6 +2416,7 @@ struct assmln *lil2ass(BBLOCK *bbase)
 /*
  *    hybrid inst: fr1 = fr2 xor vfr3/mem
  */
+      #if 0
       case VDSNEG:
             #if defined(AVX512) || defined(AVX)
                if (op3 >= 0) 
@@ -2288,6 +2442,49 @@ struct assmln *lil2ass(BBLOCK *bbase)
                                         archvdregs[-VDREGBEG-op3],
 	                                archdregs[-DREGBEG-op1]);
             #endif
+         break;
+      #endif
+      #ifdef AVX512
+      case VDSNEG_W8:
+               if (op3 >= 0) 
+                  ap->next = PrintAssln("\tvxorpd\t%s,%s,%s\n", 
+                                        /*GetDeref(SToff[DTnzerod-1].sa[2]),*/
+                                        GetDeref(op3),
+                                        archdregs[-DREGBEG-op2],
+	                                archdregs[-DREGBEG-op1]);
+               else
+                  ap->next = PrintAssln("\tvxorpd\t%s,%s,%s\n", 
+                                        archvd8regs[-VDREGBEG-op3],
+                                        archdregs[-DREGBEG-op2],
+	                                archdregs[-DREGBEG-op1]);
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDSNEG_W4:
+               if (op3 >= 0) 
+                  ap->next = PrintAssln("\tvxorpd\t%s,%s,%s\n", 
+                                        /*GetDeref(SToff[DTnzerod-1].sa[2]),*/
+                                        GetDeref(op3),
+                                        archdregs[-DREGBEG-op2],
+	                                archdregs[-DREGBEG-op1]);
+               else
+                  ap->next = PrintAssln("\tvxorpd\t%s,%s,%s\n", 
+                                        archvd4regs[-VDREGBEG-op3],
+                                        archdregs[-DREGBEG-op2],
+	                                archdregs[-DREGBEG-op1]);
+         break;
+      #endif
+      case VDSNEG_W2:
+               assert(op1==op2);
+               if (op3 >= 0)
+                  ap->next = PrintAssln("\txorpd\t%s,%s\n", 
+                                        /*GetDeref(SToff[DTnzerod-1].sa[2]),*/
+                                        GetDeref(op3),
+	                                archdregs[-DREGBEG-op1]);
+               else
+                  ap->next = PrintAssln("\txorpd\t%s,%s\n", 
+                                        archvd2regs[-VDREGBEG-op3],
+	                                archdregs[-DREGBEG-op1]);
          break;
    #endif
       case FNEGD:
@@ -3171,6 +3368,7 @@ struct assmln *lil2ass(BBLOCK *bbase)
  * Only x86 has double precision SIMD inst
  */
    #ifdef X86
+      #if 0
       case VDLD:
          #if defined(AVX512) || defined(AVX)
             ap->next = PrintAssln("\tvmovapd\t%s,%s\n", GetDeref(op2),
@@ -3180,6 +3378,24 @@ struct assmln *lil2ass(BBLOCK *bbase)
                                   archvdregs[-VDREGBEG-op1]);
          #endif
          break;
+      #endif
+      #ifdef AVX512
+      case VDLD_W8:
+            ap->next = PrintAssln("\tvmovapd\t%s,%s\n", GetDeref(op2),
+                                  archvd8regs[-VDREGBEG-op1]);      
+            break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDLD_W4:
+            ap->next = PrintAssln("\tvmovapd\t%s,%s\n", GetDeref(op2),
+                                  archvd4regs[-VDREGBEG-op1]);      
+            break;
+      #endif
+      case VDLD_W2:
+            ap->next = PrintAssln("\tmovapd\t%s,%s\n", GetDeref(op2),
+                                  archvd2regs[-VDREGBEG-op1]);
+         break;
+      #if 0
       case VDLDU:
          #if defined(AVX512) || defined(AVX)
             ap->next = PrintAssln("\tvmovupd\t%s,%s\n", GetDeref(op2),
@@ -3189,6 +3405,24 @@ struct assmln *lil2ass(BBLOCK *bbase)
                                   archvdregs[-VDREGBEG-op1]);
          #endif
          break;
+      #endif
+      #ifdef AVX512
+      case VDLDU_W8:
+            ap->next = PrintAssln("\tvmovupd\t%s,%s\n", GetDeref(op2),
+                                  archvd8regs[-VDREGBEG-op1]);      
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDLDU_W4:
+            ap->next = PrintAssln("\tvmovupd\t%s,%s\n", GetDeref(op2),
+                                  archvd4regs[-VDREGBEG-op1]);      
+         break;
+      #endif
+      case VDLDU_W2:
+            ap->next = PrintAssln("\tmovupd\t%s,%s\n", GetDeref(op2),
+                                  archvd2regs[-VDREGBEG-op1]);
+         break;
+      #if 0
       case VDLDS:
          #if defined(AVX512) || defined(AVX)
             ap->next = PrintAssln("\tvmovsd\t%s,%s\n", GetDeref(op2),
@@ -3198,6 +3432,19 @@ struct assmln *lil2ass(BBLOCK *bbase)
                                   archvdregs[-VDREGBEG-op1]);
          #endif
          break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDLDU_W8:
+      case VDLDS_W4:
+            ap->next = PrintAssln("\tvmovsd\t%s,%s\n", GetDeref(op2),
+                                  archxmmregs[-VDREGBEG-op1]);
+         break;
+      #endif
+      case VDLDS_W2:
+            ap->next = PrintAssln("\tmovsd\t%s,%s\n", GetDeref(op2),
+                                  archvd2regs[-VDREGBEG-op1]);
+         break;
+      #if 0
       case VDLDL:  /* NOTE: dest is also source */
          #if defined(AVX512) || defined(AVX)
 /*          Not defined in AVX  */
@@ -3209,6 +3456,20 @@ struct assmln *lil2ass(BBLOCK *bbase)
                                   archvdregs[-VDREGBEG-op1]);  
          #endif
          break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDLDL_W8:  /* NOTE: dest is also source */
+      case VDLDL_W4:  /* NOTE: dest is also source */
+/*          Not defined in AVX  */
+            ap->next = PrintAssln("ERROR:\t%d %d %d %d\n", 
+                                  ip->inst[0], op1, op2, op3);
+            fko_error(__LINE__, "Need to redefine for AVX when necessary");
+      #endif
+      case VDLDL_W2:  /* NOTE: dest is also source */
+            ap->next = PrintAssln("\tmovlpd\t%s, %s\n", GetDeref(op2),
+                                  archvdregs[-VDREGBEG-op1]);  
+         break;
+      #if 0
       case VDLDH:  /* NOTE: dest is also source */
          #if defined(AVX512) || defined(AVX)
 /*          Not defined in AVX */
@@ -3220,9 +3481,25 @@ struct assmln *lil2ass(BBLOCK *bbase)
                                   archvdregs[-VDREGBEG-op1]);
          #endif
          break;
+      #endif
+      #ifdef AVX512
+      case VDLDH_W8:  /* NOTE: dest is also source */
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDLDH_W4: 
+/*          Not defined in AVX  */
+            ap->next = PrintAssln("ERROR:\t%d %d %d %d\n", 
+                                  ip->inst[0], op1, op2, op3);
+            fko_error(__LINE__, "Need to redefine for AVX when necessary");
+      #endif
+      case VDLDH_W2: 
+            ap->next = PrintAssln("\tmovhpd\t%s, %s\n", GetDeref(op2),
+                                  archvdregs[-VDREGBEG-op1]);
+         break;
 /*
  *    special load which broadcast the value
  */
+      #if 0
       case VDLDSB:
          #if defined(AVX512) || defined(AVX)
             ap->next = PrintAssln("\tvbroadcastsd\t%s,%s\n", GetDeref(op2),
@@ -3235,6 +3512,24 @@ struct assmln *lil2ass(BBLOCK *bbase)
                                   archvdregs[-VDREGBEG-op1]);
          #endif
          break;
+      #endif
+      #ifdef AVX512
+      case VDLDSB_W8:
+            ap->next = PrintAssln("\tvbroadcastsd\t%s,%s\n", GetDeref(op2),
+                                  archvd8regs[-VDREGBEG-op1]);
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDLDSB_W4:
+            ap->next = PrintAssln("\tvbroadcastsd\t%s,%s\n", GetDeref(op2),
+                                  archvd4regs[-VDREGBEG-op1]);
+         break;
+      #endif
+      case VDLDSB_W2:
+            ap->next = PrintAssln("\tmovddup\t%s,%s\n", GetDeref(op2),
+                                  archvd2regs[-VDREGBEG-op1]);
+         break;
+      #if 0
       case VDSTNT:
          #if defined(AVX512) || defined(AVX)
             ap->next = PrintAssln("\tvmovntpd\t%s,%s\n", 
@@ -3247,6 +3542,26 @@ struct assmln *lil2ass(BBLOCK *bbase)
                                   GetDeref(op1));
          #endif
          break;
+      #endif
+      #ifdef AVX512
+      case VDSTNT_W8:
+            ap->next = PrintAssln("\tvmovntpd\t%s,%s\n", 
+                                  archvd8regs[-VDREGBEG-op2],
+                                  GetDeref(op1));
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDSTNT_W4:
+            ap->next = PrintAssln("\tvmovntpd\t%s,%s\n", 
+                                  archvd4regs[-VDREGBEG-op2],
+                                  GetDeref(op1));
+         break;
+      #endif
+      case VDSTNT_W2:
+            ap->next = PrintAssln("\tmovntpd\t%s, %s\n", 
+                                  archvdr2egs[-VDREGBEG-op2],
+                                  GetDeref(op1));
+      #if 0
       case VDST:
          #if defined(AVX512) || defined(AVX)
             ap->next = PrintAssln("\tvmovapd\t%s, %s\n", 
@@ -3258,6 +3573,27 @@ struct assmln *lil2ass(BBLOCK *bbase)
                                   GetDeref(op1));
          #endif   
          break;
+      #endif
+      #ifdef AVX512
+      case VDST_W8:
+            ap->next = PrintAssln("\tvmovapd\t%s, %s\n", 
+                                  archvd8regs[-VDREGBEG-op2],
+                                  GetDeref(op1));
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDST_W4:
+            ap->next = PrintAssln("\tvmovapd\t%s, %s\n", 
+                                  archvd4regs[-VDREGBEG-op2],
+                                  GetDeref(op1));
+         break;
+      #endif
+      case VDST_W2:
+            ap->next = PrintAssln("\tmovapd\t%s, %s\n", 
+                                  archvd2regs[-VDREGBEG-op2],
+                                  GetDeref(op1));
+         break;
+      #if 0
       case VDSTU:
          #if defined(AVX512) || defined(AVX)
             ap->next = PrintAssln("\tvmovupd\t%s, %s\n", 
@@ -3269,6 +3605,27 @@ struct assmln *lil2ass(BBLOCK *bbase)
                                   GetDeref(op1));
          #endif   
          break;
+      #endif
+      #ifdef AVX512
+      case VDSTU_W8:
+            ap->next = PrintAssln("\tvmovupd\t%s, %s\n", 
+                                  archvd8regs[-VDREGBEG-op2],
+                                  GetDeref(op1));
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDSTU_W4:
+            ap->next = PrintAssln("\tvmovupd\t%s, %s\n", 
+                                  archvd4regs[-VDREGBEG-op2],
+                                  GetDeref(op1));
+         break;
+      #endif
+      case VDSTU_W2:
+            ap->next = PrintAssln("\tmovupd\t%s, %s\n", 
+                                  archvd2regs[-VDREGBEG-op2],
+                                  GetDeref(op1));
+         break;
+      #if 0
       case VDSTS:
          #if defined(AVX512) || defined(AVX) 
             ap->next = PrintAssln("\tvmovsd\t%s, %s\n", 
@@ -3280,6 +3637,23 @@ struct assmln *lil2ass(BBLOCK *bbase)
                                   GetDeref(op1));
          #endif
          break;
+      #endif
+      #ifdef AVX512
+      case VDSTS_W8:
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDSTS_W4:
+            ap->next = PrintAssln("\tvmovsd\t%s, %s\n", 
+                                  archxmmregs[-VDREGBEG-op2],
+                                  GetDeref(op1));
+         break;
+      #endif
+      case VDSTS_W2:
+            ap->next = PrintAssln("\tmovlpd\t%s, %s\n", 
+                                  archvd2regs[-VDREGBEG-op2],
+                                  GetDeref(op1));
+         break;
+      #if 0
       case VDMOV:
          #if defined(AVX512) || defined(AVX)
             ap->next = PrintAssln("\tvmovapd\t%s, %s\n", 
@@ -3291,10 +3665,31 @@ struct assmln *lil2ass(BBLOCK *bbase)
                                   archvdregs[-VDREGBEG-op1]);
          #endif
          break;
+      #endif
+      #ifdef AVX512
+      case VDMOV_W8:
+            ap->next = PrintAssln("\tvmovapd\t%s, %s\n", 
+                                  archvd8regs[-VDREGBEG-op2],
+                                  archvd8regs[-VDREGBEG-op1]);
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDMOV_W4:
+            ap->next = PrintAssln("\tvmovapd\t%s, %s\n", 
+                                  archvd4regs[-VDREGBEG-op2],
+                                  archvd4regs[-VDREGBEG-op1]);
+         break;
+      #endif
+      case VDMOV_W2:
+            ap->next = PrintAssln("\tmovapd\t%s, %s\n", 
+                                  archvd2regs[-VDREGBEG-op2],
+                                  archvd2regs[-VDREGBEG-op1]);
+         break;
+      #if 0  
       case VDMOVS:
 /*
- *       Allow scalar to vector reg to reg move
- *       two variation :
+ *    Allow scalar to vector reg to reg move
+ *    two variation :
  * 1. VDMOVS vr0, sr, vr1  // vr0[0] = sr, vr0[vlen-1: 1] = vr1[vlen-1: 1]
  * 2. VDMOVS sr, vr, 0     // sr = vr[0]
  *       here vr0 and vr1 should be vector register
@@ -3345,8 +3740,6 @@ struct assmln *lil2ass(BBLOCK *bbase)
          
             op1 = -op1;
             op2 = -op2;
-            /*fprintf(stderr, "********* VDMOVS %d %d %d\n", -VDREGBEG-op1, 
-                  -VDREGBEG-op2, op3);*/
             #if defined(AVX512) || defined(AVX)
 /*
  *             vmovsd is expensive. as dreg and vdreg are aliased, we use VDMOV
@@ -3360,70 +3753,112 @@ struct assmln *lil2ass(BBLOCK *bbase)
                                      archvdregs[-VDREGBEG-op1]);
             #endif
          }
-#if 0         
-         assert (op1 < 0 && op2 < 0);
-         op1 = -op1;
-         op2 = -op2;
-         if (op1 >= DREGBEG && op1 < DREGEND)
-            op1 = op1 - DREGBEG + VDREGBEG;
-         if (op2 >= DREGBEG && op2 < DREGEND)
-            op2 = op2 - DREGBEG + VDREGBEG;
-         op1 = -op1;
-         op2 = -op2;
-         
-/*         if (op1 != op2)
-            #ifdef AVX
-               sptr = "vmovsd";
-               
-            #else
-               sptr = "movsd";
-            #endif
-         else
-            #ifdef AVX
-               sptr = "vmovapd";
-            #else
-               sptr = "movapd";
-            #endif
-*/  
-         if (op1 != op2)
-            #ifdef AVX
-#if 0            
-             ap->next = PrintAssln("\tvmovsd\t%s, %s,%s\n", 
-                                   archxmmregs[-VDREGBEG-op2],
-                                   archxmmregs[-VDREGBEG-op1],
-                                   archxmmregs[-VDREGBEG-op1]);
-#else
-             ap->next = PrintAssln("\tvmovapd\t%s, %s\n", 
-                                   archvdregs[-VDREGBEG-op2],
-                                   archvdregs[-VDREGBEG-op1]);
-#endif
-            #else
-               ap->next = PrintAssln("\tmovsd\t%s, %s\n",  
-                                     archvdregs[-VDREGBEG-op2],
-                                     archvdregs[-VDREGBEG-op1]);
-            #endif
-/*
- *          In X86, scalar and vector registers are aliased. 
- *          So, we don't need to emit the move instruction with same
- *          source and destination.
- */
-         else
-#if 0            
-            #ifdef AVX
-               ap->next = PrintAssln("\tvmovapd\t%s, %s\n", 
-                                     archvdregs[-VDREGBEG-op2],
-                                     archvdregs[-VDREGBEG-op1]);
-            #else
-               ap->next = PrintAssln("\tmovapd\t%s, %s\n", 
-                                     archvdregs[-VDREGBEG-op2],
-                                     archvdregs[-VDREGBEG-op1]);
-            #endif
-#else
-               continue;
-#endif
-               
-#endif
          break;
+      #endif
+/*
+ *    Allow scalar to vector reg to reg move
+ *    two variation :
+ * 1. VDMOVS vr0, sr, vr1  // vr0[0] = sr, vr0[vlen-1: 1] = vr1[vlen-1: 1]
+ * 2. VDMOVS sr, vr, 0     // sr = vr[0]
+ *       here vr0 and vr1 should be vector register
+ */
+      #ifdef AVX512
+      case VDMOVS_W8:
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDMOVS_W4:
+         op1 = -op1;
+         op2 = -op2;
+         op3 = op3 ? -op3: op3;
+/*
+ *       sr-to-vr: VDMOVS vr0, sr, vr1 
+ */
+         if (op1 >= VDREGBEG && op1 < VDREGEND)
+         {
+            assert(op3);
+            assert(op2 >= DREGBEG && op2 < DREGEND);
+            op2 = op2 - DREGBEG + VDREGBEG;
+            if (op1 == op2 == op3) /* nothing to do */
+               continue; 
+            op1 = -op1;
+            op2 = -op2;
+            op3 = -op3;
+            ap->next = PrintAssln("\tvmovsd\t%s, %s,%s\n", 
+                                     archxmmregs[-VDREGBEG-op2],
+                                     archxmmregs[-VDREGBEG-op3],
+                                     archxmmregs[-VDREGBEG-op1]); 
+         }
+/*
+ *       vr-to-sr: VDMOVS sr, vr0, 0
+ */
+         else if (op1 >= DREGBEG && op1 < DREGEND)
+         {
+            assert(op2 >= VDREGBEG && op2 < VDREGEND);
+            assert(!op3);
+/*
+ *          sreg and vsreg are aliased in X86
+ */
+            op1 = op1 - DREGBEG + VDREGBEG;
+            if (op1 == op2) /* same reg, no need to move */
+               continue;
+         
+            op1 = -op1;
+            op2 = -op2;
+/*
+ *          vmovsd is expensive. as dreg and vdreg are aliased, we use VDMOV
+ */
+            ap->next = PrintAssln("\tvmovapd\t%s, %s\n", 
+                                     archvdregs[-VDREGBEG-op2],
+                                     archvdregs[-VDREGBEG-op1]);
+         }
+         break;
+      #endif
+      case VDMOVS_W2:
+         op1 = -op1;
+         op2 = -op2;
+         op3 = op3 ? -op3: op3;
+/*
+ *       sr-to-vr: VDMOVS vr0, sr, vr1 
+ */
+         if (op1 >= VDREGBEG && op1 < VDREGEND)
+         {
+            assert(op3);
+            assert(op2 >= DREGBEG && op2 < DREGEND);
+            op2 = op2 - DREGBEG + VDREGBEG;
+         
+            if (op1 == op2 == op3) /* nothing to do */
+               continue; 
+         
+            op1 = -op1;
+            op2 = -op2;
+            op3 = -op3;
+            assert(op1==op3);
+            ap->next = PrintAssln("\tmovsd\t%s, %s\n",  
+                                     archvfregs[-VDREGBEG-op2],
+                                     archvfregs[-VDREGBEG-op1]);
+         }
+/*
+ *       vr-to-sr: VDMOVS sr, vr0, 0
+ */
+         else if (op1 >= DREGBEG && op1 < DREGEND)
+         {
+            assert(op2 >= VDREGBEG && op2 < VDREGEND);
+            assert(!op3);
+/*
+ *          sreg and vsreg are aliased in X86
+ */
+            op1 = op1 - DREGBEG + VDREGBEG;
+            if (op1 == op2) /* same reg, no need to move */
+               continue;
+         
+            op1 = -op1;
+            op2 = -op2;
+            ap->next = PrintAssln("\tmovsd\t%s, %s\n",  
+                                     archvdregs[-VDREGBEG-op2],
+                                     archvdregs[-VDREGBEG-op1]);
+         }
+         break;
+      #if 0
       case VDMUL:
          #if defined(AVX512) || defined(AVX)
             ap->next = PrintAssln("\tvmulpd\t%s, %s, %s\n", 
@@ -3436,6 +3871,58 @@ struct assmln *lil2ass(BBLOCK *bbase)
                                archvdregs[-VDREGBEG-op1]);
          #endif
          break;
+      #endif
+      #ifdef AVX512
+      case VDMUL_W8:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0 && op3 != 0);
+         #endif
+         if (op3 > 0)
+            ap->next = PrintAssln("\tvmulpd\t%s, %s, %s\n", 
+                                  GetDeref(op3),
+                                  archvd8regs[-VDREGBEG-op2],
+                                  archvd8regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tvmulpd\t%s, %s, %s\n", 
+                                  archvd8regs[-VDREGBEG-op3], 
+                                  archvd8regs[-VDREGBEG-op2],
+                                  archvd8regs[-VDREGBEG-op1]);
+
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDMUL_W4:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0 && op3 != 0);
+         #endif
+         if (op3 > 0)
+            ap->next = PrintAssln("\tvmulpd\t%s, %s, %s\n", 
+                                  GetDeref(op3),
+                                  archvd4regs[-VDREGBEG-op2],
+                                  archvd4regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tvmulpd\t%s, %s, %s\n", 
+                                  archvd4regs[-VDREGBEG-op3], 
+                                  archvd4regs[-VDREGBEG-op2],
+                                  archvd4regs[-VDREGBEG-op1]);
+
+         break;
+      #endif
+      case VDMUL_W2:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0 && op3 != 0);
+            assert(op1 == op2);
+         #endif
+         if (op3 > 0)
+            ap->next = PrintAssln("\tmulpd\t%s, %s\n", 
+                               GetDeref(op3),
+                               archvd2regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tmulpd\t%s, %s\n", 
+                               archvd2regs[-VDREGBEG-op3], 
+                               archvd2regs[-VDREGBEG-op1]);
+         break;
+      #if 0
       case VDDIV:
          #if defined(AVX512) || defined(AVX)
             ap->next = PrintAssln("\tvdivpd\t%s, %s, %s\n", 
@@ -3448,6 +3935,46 @@ struct assmln *lil2ass(BBLOCK *bbase)
                                archvdregs[-VDREGBEG-op1]);
          #endif
          break;
+      #endif
+      #ifdef AVX512
+      case VDDIV_W8:
+         if (op3 > 0)
+            ap->next = PrintAssln("\tvdivpd\t%s, %s, %s\n", 
+                                  GetDeref(op3),
+                                  archvd8regs[-VDREGBEG-op2],
+                                  archvd8regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tvdivpd\t%s, %s, %s\n", 
+                                  archvd8regs[-VDREGBEG-op3],
+                                  archvd8regs[-VDREGBEG-op2],
+                                  archvd8regs[-VDREGBEG-op1]);
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDDIV_W4:
+         if (op3 > 0)
+            ap->next = PrintAssln("\tvdivpd\t%s, %s, %s\n", 
+                                  GetDeref(op3),
+                                  archvd4regs[-VDREGBEG-op2],
+                                  archvd4regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tvdivpd\t%s, %s, %s\n", 
+                                  archvd4regs[-VDREGBEG-op3],
+                                  archvd4regs[-VDREGBEG-op2],
+                                  archvd4regs[-VDREGBEG-op1]);
+         break;
+      #endif
+      case VDDIV_W2:
+            assert(op1 == op2);
+         if (op3 > 0)
+            ap->next = PrintAssln("\tdivpd\t%s, %s\n", GetDeref(op3),
+                               archvd2regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tdivpd\t%s, %s\n", 
+                               archvd2regs[-VDREGBEG-op3],
+                               archvd2regs[-VDREGBEG-op1]);
+         break;
+      #if 0
       case VDMAC:
          #ifdef X86
             #if defined(ArchHasMAC) && defined(FMA4) 
@@ -3485,6 +4012,109 @@ struct assmln *lil2ass(BBLOCK *bbase)
 	       fko_error(__LINE__, "VDMAC Not supported in this arch!");
          #endif
          break;
+      #endif
+   #ifdef ArchHasMac 
+      #ifdef AVX512
+      case VDMAC_W8:
+         #ifdef FMA3
+            #if IFKO_DEBUG_LEVEL >= 1
+               assert( op1 < 0 && op2 < 0 && op3 != 0);
+            #endif
+            if (op3 < 0) 
+               ap->next = PrintAssln("\tvfmadd231pd\t%s,%s,%s\n", 
+                                        archd8regs[GetDregID(op3)],
+	                                archd8regs[-VDREGBEG-op2],
+	                                archd8regs[-VDREGBEG-op1]);
+            else
+               ap->next = PrintAssln("\tvfmadd231pd\t%s,%s,%s\n", 
+                                        GetDeref(op3),
+	                                archd8regs[-VDREGBEG-op2],
+	                                archd8regs[-VDREGBEG-op2],
+	                                archd8regs[-VDREGBEG-op1]);
+         #else
+               ap->next = PrintAssln("\tUNIMP\n");
+	       fko_error(__LINE__, "VDMAC Not found in this x86 arch!");
+         #endif 
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDMAC_W4:
+         #if defined(FMA3)
+            #if IFKO_DEBUG_LEVEL >= 1
+               assert( op1 < 0 && op2 < 0 && op3 != 0);
+            #endif
+            if (op3 < 0) 
+               ap->next = PrintAssln("\tvfmadd231pd\t%s,%s,%s\n", 
+                                        archd4regs[GetDregID(op3)],
+	                                archd4regs[-VDREGBEG-op2],
+	                                archd4regs[-VDREGBEG-op1]);
+            else
+               ap->next = PrintAssln("\tvfmadd231pd\t%s,%s,%s\n", 
+                                        GetDeref(op3),
+	                                archd4regs[-VDREGBEG-op2],
+	                                archd4regs[-VDREGBEG-op2],
+	                                archd4regs[-VDREGBEG-op1]);
+         #elif defined(FMA4) 
+            #if IFKO_DEBUG_LEVEL >= 1
+               assert( op1 < 0 && op2 < 0 && op3 != 0);
+            #endif
+               if (op3 < 0) /*FMA4: only src2(here op3) can be mem */
+                  ap->next = PrintAssln("\tvfmaddpd\t%s,%s,%s,%s\n", 
+	                                archd4regs[-VDREGBEG-op1],
+                                        archd4regs[GetDregID(op3)],
+	                                archd4regs[-VDREGBEG-op2],
+	                                archd4regs[-VDREGBEG-op1]);
+               else
+                  ap->next = PrintAssln("\tvfmaddpd\t%s,%s,%s,%s\n", 
+	                                archd4regs[-VDREGBEG-op1],
+                                        GetDeref(op3),
+	                                archd4regs[-VDREGBEG-op2],
+	                                archd4regs[-VDREGBEG-op1]);
+         #else
+               ap->next = PrintAssln("\tUNIMP\n");
+	       fko_error(__LINE__, "VDMAC Not found in this x86 arch!");
+         #endif
+         break;
+      case VDMAC_W2:  /* not supported on SSE */
+         #if defined(FMA3)
+            #if IFKO_DEBUG_LEVEL >= 1
+               assert( op1 < 0 && op2 < 0 && op3 != 0);
+            #endif
+            if (op3 < 0) 
+               ap->next = PrintAssln("\tvfmadd231pd\t%s,%s,%s\n", 
+                                        archd2regs[GetDregID(op3)],
+	                                archd2regs[-VDREGBEG-op2],
+	                                archd2regs[-VDREGBEG-op1]);
+            else
+               ap->next = PrintAssln("\tvfmadd231pd\t%s,%s,%s\n", 
+                                        GetDeref(op3),
+	                                archd2regs[-VDREGBEG-op2],
+	                                archd2regs[-VDREGBEG-op2],
+	                                archd2regs[-VDREGBEG-op1]);
+         #elif defined(FMA4) 
+            #if IFKO_DEBUG_LEVEL >= 1
+               assert( op1 < 0 && op2 < 0 && op3 != 0);
+            #endif
+               if (op3 < 0) /*FMA4: only src2(here op3) can be mem */
+                  ap->next = PrintAssln("\tvfmaddpd\t%s,%s,%s,%s\n", 
+	                                archd2regs[-VDREGBEG-op1],
+                                        archd2regs[GetDregID(op3)],
+	                                archd2regs[-VDREGBEG-op2],
+	                                archd2regs[-VDREGBEG-op1]);
+               else
+                  ap->next = PrintAssln("\tvfmaddpd\t%s,%s,%s,%s\n", 
+	                                archd2regs[-VDREGBEG-op1],
+                                        GetDeref(op3),
+	                                archd2regs[-VDREGBEG-op2],
+	                                archd2regs[-VDREGBEG-op1]);
+         #else
+               ap->next = PrintAssln("\tUNIMP\n");
+	       fko_error(__LINE__, "VDMAC Not found in this x86 arch!");
+         #endif
+         break;
+      #endif
+   #endif
+      #if 0
       case VDADD:
          #if defined(AVX512) || defined(AVX)
             ap->next = PrintAssln("\tvaddpd\t%s, %s, %s\n", 
@@ -3497,6 +4127,55 @@ struct assmln *lil2ass(BBLOCK *bbase)
                                archvdregs[-VDREGBEG-op1]);
          #endif
          break;
+      #endif
+      #ifdef AVX512
+      case VDADD_W8:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0 && op3 != 0);
+         #endif
+         if (op3 > 0)
+            ap->next = PrintAssln("\tvaddpd\t%s, %s, %s\n", 
+                                  GetDeref(op3),
+                                  archvd8regs[-VDREGBEG-op2], 
+                                  archvd8regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tvaddpd\t%s, %s, %s\n", 
+                                  archvd8regs[-VDREGBEG-op3], 
+                                  archvd8regs[-VDREGBEG-op2], 
+                                  archvd8regs[-VDREGBEG-op1]);
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDADD_W4:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0 && op3 != 0);
+         #endif
+         if (op3 > 0)
+            ap->next = PrintAssln("\tvaddpd\t%s, %s, %s\n", 
+                                  GetDeref(op3),
+                                  archvd4regs[-VDREGBEG-op2], 
+                                  archvd4regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tvaddpd\t%s, %s, %s\n", 
+                                  archvd4regs[-VDREGBEG-op3], 
+                                  archvd4regs[-VDREGBEG-op2], 
+                                  archvd4regs[-VDREGBEG-op1]);
+         break;
+      #endif
+      case VDADD_W2:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0 && op3 != 0);
+            assert(op1 == op2);
+         #endif
+         if (op3 > 0)
+            ap->next = PrintAssln("\taddpd\t%s, %s\n", GetDeref(op3),
+                               archvd2regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\taddpd\t%s, %s\n", 
+                               archvd2regs[-VDREGBEG-op3], 
+                               archvd2regs[-VDREGBEG-op1]);
+         break;
+      #if 0
       case VDSUB:
          #if defined(AVX512) || defined(AVX)
             ap->next = PrintAssln("\tvsubpd\t%s, %s, %s\n", 
@@ -3509,6 +4188,55 @@ struct assmln *lil2ass(BBLOCK *bbase)
                                archvdregs[-VDREGBEG-op1]);
          #endif
          break;
+      #endif
+      #ifdef AVX512
+      case VDSUB_W8:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0 && op3 != 0);
+         #endif
+         if (op3 > 0)
+            ap->next = PrintAssln("\tvsubpd\t%s, %s, %s\n", 
+                                  GetDeref(op3),
+                                  archvd8regs[-VDREGBEG-op2], 
+                                  archvd8regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tvsubpd\t%s, %s, %s\n", 
+                                  archvd8regs[-VDREGBEG-op3], 
+                                  archvd8regs[-VDREGBEG-op2], 
+                                  archvd8regs[-VDREGBEG-op1]);
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDSUB_W4:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0 && op3 != 0);
+         #endif
+         if (op3 > 0)
+            ap->next = PrintAssln("\tvsubpd\t%s, %s, %s\n", 
+                                  GetDeref(op3),
+                                  archvd4regs[-VDREGBEG-op2], 
+                                  archvd4regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tvsubpd\t%s, %s, %s\n", 
+                                  archvd4regs[-VDREGBEG-op3], 
+                                  archvd4regs[-VDREGBEG-op2], 
+                                  archvd4regs[-VDREGBEG-op1]);
+         break;
+      #endif
+      case VDSUB_W2:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0 && op3 != 0);
+            assert(op1 == op2);
+         #endif
+         if (op3 > 0)
+            ap->next = PrintAssln("\tsubpd\t%s, %s\n", GetDeref(op3),
+                               archvd2regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tsubpd\t%s, %s\n", 
+                               archvd2regs[-VDREGBEG-op3], 
+                               archvd2regs[-VDREGBEG-op1]);
+         break;
+      #if 0
       case VDABS:
          #if defined(AVX512) || defined(AVX)
 /*         
@@ -3539,6 +4267,59 @@ struct assmln *lil2ass(BBLOCK *bbase)
 	                             archvdregs[-VDREGBEG-op1]);
          #endif
          break;
+      #endif
+      #ifdef AVX512
+      case VDABS_W8:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0);
+	    assert(DTabsd);
+         #endif
+         if (op3 >= 0)
+            ap->next = PrintAssln("\tvandpd\t%s, %s, %s\n",
+                                  GetDeref(SToff[DTabsd-1].sa[2]),
+	                          archvd8regs[-VDREGBEG-op2],
+                                  archvd8regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tvandpd\t%s, %s, %s\n",
+	                          archvd8regs[-VDREGBEG-op3],
+	                          archvd8regs[-VDREGBEG-op2],
+                                  archvd8regs[-VDREGBEG-op1]);
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDABS_W4:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0);
+	    assert(DTabsd);
+         #endif
+         if (op3 >= 0)
+            ap->next = PrintAssln("\tvandpd\t%s, %s, %s\n",
+                                  GetDeref(SToff[DTabsd-1].sa[2]),
+	                          archvd4regs[-VDREGBEG-op2],
+                                  archvd4regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tvandpd\t%s, %s, %s\n",
+	                          archvd4regs[-VDREGBEG-op3],
+	                          archvd4regs[-VDREGBEG-op2],
+                                  archvd4regs[-VDREGBEG-op1]);
+         break;
+      #endif
+      case VDABS_W2:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0);
+	    assert(DTabsd);
+	    assert(op1 == op2);
+         #endif
+         if (op3 >= 0)
+            ap->next = PrintAssln("\tandpd\t%s,%s\n",
+                                  GetDeref(SToff[DTabsd-1].sa[2]),
+	                          archvd2regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tandpd\t%s,%s\n",
+	                          archvd2regs[-VDREGBEG-op3],
+	                          archvd2regs[-VDREGBEG-op1]);
+         break;
+      #if 0
       case VDNEG:
 	 assert(DTnzerod);
          #if defined(AVX512) || defined(AVX)
@@ -3564,6 +4345,59 @@ struct assmln *lil2ass(BBLOCK *bbase)
 	                             archdregs[-VDREGBEG-op1]);
          #endif
          break;
+      #endif
+      #ifdef AVX512
+      case VDNEG_W8:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0);
+	    assert(DTnzerod);
+         #endif
+         if (op3 >= 0) /* need to check the usage */
+            ap->next = PrintAssln("\tvxorpd\t%s,%s,%s\n", 
+                                  GetDeref(SToff[DTnzerod-1].sa[2]),
+                                  archd8regs[-VDREGBEG-op2],
+	                          archd8regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tvxorpd\t%s,%s,%s\n", 
+                                  archd8regs[-VDREGBEG-op3],
+                                  archd8regs[-VDREGBEG-op2],
+	                          archd8regs[-VDREGBEG-op1]);
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDNEG_W4:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0);
+	    assert(DTnzerod);
+         #endif
+         if (op3 >= 0) /* need to check the usage */
+            ap->next = PrintAssln("\tvxorpd\t%s,%s,%s\n", 
+                                  GetDeref(SToff[DTnzerod-1].sa[2]),
+                                  archd4regs[-VDREGBEG-op2],
+	                          archd4regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tvxorpd\t%s,%s,%s\n", 
+                                  archd4regs[-VDREGBEG-op3],
+                                  archd4regs[-VDREGBEG-op2],
+	                          archd4regs[-VDREGBEG-op1]);
+         break;
+      #endif
+      case VDNEG_W2:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0);
+            assert(op1==op2);
+	    assert(DTnzerod);
+         #endif
+         if (op3 >= 0)
+            ap->next = PrintAssln("\txorpd\t%s,%s\n", 
+                                  GetDeref(SToff[DTnzerod-1].sa[2]),
+	                          archd2regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\txorpd\t%s,%s\n", 
+                                  archd2regs[-VDREGBEG-op3],
+	                          archd2regs[-VDREGBEG-op1]);
+         break;
+      #if 0
       case VDMAX:
          #if defined(AVX512) || defined(AVX)
             ap->next = PrintAssln("\tvmaxpd\t%s, %s, %s\n", 
@@ -3576,6 +4410,55 @@ struct assmln *lil2ass(BBLOCK *bbase)
                                archvdregs[-VDREGBEG-op1]);
          #endif
          break;
+      #endif
+      #ifdef AVX512
+      case VDMAX_W8:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0 && op3 != 0);
+         #endif
+         if (op3 > 0)
+            ap->next = PrintAssln("\tvmaxpd\t%s, %s, %s\n", 
+                                  GetDeref(op3),
+                                  archvd8regs[-VDREGBEG-op2], 
+                                  archvd8regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tvmaxpd\t%s, %s, %s\n", 
+                                  archvd8regs[-VDREGBEG-op3], 
+                                  archvd8regs[-VDREGBEG-op2], 
+                                  archvd8regs[-VDREGBEG-op1]);
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDMAX_W4:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0 && op3 != 0);
+         #endif
+         if (op3 > 0)
+            ap->next = PrintAssln("\tvmaxpd\t%s, %s, %s\n", 
+                                  GetDeref(op3),
+                                  archvd4regs[-VDREGBEG-op2], 
+                                  archvd4regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tvmaxpd\t%s, %s, %s\n", 
+                                  archvd4regs[-VDREGBEG-op3], 
+                                  archvd4regs[-VDREGBEG-op2], 
+                                  archvd4regs[-VDREGBEG-op1]);
+         break;
+      #endif
+      case VDSUB_W2:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0 && op3 != 0);
+            assert(op1 == op2);
+         #endif
+         if (op3 > 0)
+            ap->next = PrintAssln("\tmaxpd\t%s, %s\n", GetDeref(op3),
+                               archvd2regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tmaxpd\t%s, %s\n", 
+                               archvd2regs[-VDREGBEG-op3], 
+                               archvd2regs[-VDREGBEG-op1]);
+         break;
+      #if 0
       case VDMIN:
          #if defined(AVX512) || defined(AVX)
             ap->next = PrintAssln("\tvminpd\t%s, %s, %s\n", 
@@ -3588,6 +4471,55 @@ struct assmln *lil2ass(BBLOCK *bbase)
                                archvdregs[-VDREGBEG-op1]);
          #endif
          break;
+      #endif
+      #ifdef AVX512
+      case VDMIN_W8:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0 && op3 != 0);
+         #endif
+         if (op3 > 0)
+            ap->next = PrintAssln("\tvminpd\t%s, %s, %s\n", 
+                                  GetDeref(op3),
+                                  archvd8regs[-VDREGBEG-op2], 
+                                  archvd8regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tvminpd\t%s, %s, %s\n", 
+                                  archvd8regs[-VDREGBEG-op3], 
+                                  archvd8regs[-VDREGBEG-op2], 
+                                  archvd8regs[-VDREGBEG-op1]);
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDMIN_W4:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0 && op3 != 0);
+         #endif
+         if (op3 > 0)
+            ap->next = PrintAssln("\tvminpd\t%s, %s, %s\n", 
+                                  GetDeref(op3),
+                                  archvd4regs[-VDREGBEG-op2], 
+                                  archvd4regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tvminpd\t%s, %s, %s\n", 
+                                  archvd4regs[-VDREGBEG-op3], 
+                                  archvd4regs[-VDREGBEG-op2], 
+                                  archvd4regs[-VDREGBEG-op1]);
+         break;
+      #endif
+      case VDMIN_W2:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0 && op3 != 0);
+            assert(op1 == op2);
+         #endif
+         if (op3 > 0)
+            ap->next = PrintAssln("\tminpd\t%s, %s\n", GetDeref(op3),
+                               archvd2regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tminpd\t%s, %s\n", 
+                               archvd2regs[-VDREGBEG-op3], 
+                               archvd2regs[-VDREGBEG-op1]);
+         break;
+      #if 0
       case VDZERO:
          #if defined(AVX512) || defined(AVX)
             ap->next = PrintAssln("\tvxorpd\t%s,%s,%s\n", 
@@ -3599,9 +4531,33 @@ struct assmln *lil2ass(BBLOCK *bbase)
                                   archvdregs[-VDREGBEG-op1]);
          #endif
          break;
+      #endif
+      #ifdef AVX512
+      case VDZERO_W8:
+         ap->next = PrintAssln("\tvxorpd\t%s,%s,%s\n", 
+                               archvd8regs[-VDREGBEG-op1],
+                               archvd8regs[-VDREGBEG-op1],
+                               archvd8regs[-VDREGBEG-op1]);
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDZERO_W4:
+         ap->next = PrintAssln("\tvxorpd\t%s,%s,%s\n", 
+                               archvd4regs[-VDREGBEG-op1],
+                               archvd4regs[-VDREGBEG-op1],
+                               archvd4regs[-VDREGBEG-op1]);
+         break;
+      #endif
+      case VDZERO_W2:
+         ap->next = PrintAssln("\txorpd\t%s,%s,%s\n", 
+                               archvd8regs[-VDREGBEG-op1],
+                               archvd8regs[-VDREGBEG-op1]);
+         break;
 /*
- *    FIXME: VDHADD only on YMM regs on AVX512
+ *    NOTE: VDHADD only supports on YMM/XMM regs on AVX512
+ *    NOTE: the behaviour of VHADD is different on YMM and XMM registers
  */
+      #if 0
       case VDHADD:
 /*
  *       NOTE: No equivalent inst in AVX512
@@ -3616,6 +4572,38 @@ struct assmln *lil2ass(BBLOCK *bbase)
             ap->next = PrintAssln("\thaddpd\t%s, %s\n", GetDregOrDeref(op3),
                                   archvdregs[-VDREGBEG-op1]);
          #endif
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDHADD_W4:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0 && op3 != 0);
+         #endif
+         if (op3 > 0)
+            ap->next = PrintAssln("\tvhaddpd\t%s,%s,%s\n",
+                                     GetDeref(op3), 
+                                     archvd4regs[-VDREGBEG-op2], 
+                                     archvd4regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tvhaddpd\t%s,%s,%s\n",
+                                     archvd4regs[-VDREGBEG-op3], 
+                                     archvd4regs[-VDREGBEG-op2], 
+                                     archvd4regs[-VDREGBEG-op1]);
+         break;
+      #endif
+      case VDHADD_W2:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0 && op3 != 0);
+            assert(op1 == op2);
+         #endif
+         if (op3 > 0)
+            ap->next = PrintAssln("\thaddpd\t%s, %s\n", 
+                                  GetDeref(op3),
+                                  archv2dregs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\thaddpd\t%s, %s\n", 
+                                  archvd2regs[-VDREGBEG-op3], 
+                                  archvd2regs[-VDREGBEG-op1]);
          break;
 /*
  *    Conditional MOV or, Select operation.
@@ -3636,6 +4624,7 @@ struct assmln *lil2ass(BBLOCK *bbase)
  *    NOTE: for 2nd version, no mem can be used. in AVX, only src2 can be mem.
  *    but here, we use dest as src2 and it can't be mem.
  */
+      #if 0
       case VDCMOV1:
          #if defined(AVX512) 
             assert( (op1 < 0) && (op3 < 0));
@@ -3670,7 +4659,46 @@ struct assmln *lil2ass(BBLOCK *bbase)
 	    fko_error(__LINE__, "This CMOV is Not found in this x86 arch!");
          #endif
          break;
-
+      #endif
+      #ifdef AVX512
+      case VDCMOV1_W8:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op3 < 0 && op2 != 0);
+         #endif
+         if (op2 > 0) /* only src2(here op2) can be mem */
+            ap->next = PrintAssln("\tvblendmpd\t%s,%s,%s {%s}\n", 
+                                  GetDeref(op2),
+                                  archvd8regs[-VDREGBEG-op1],
+	                          archvd8regs[-VDREGBEG-op1],
+                                  FCCREGS[-FCC0-op3]);
+         else
+            ap->next = PrintAssln("\tvblendmpd\t%s,%s,%s,%s\n", 
+	                          archvd8regs[-VDREGBEG-op2],
+	                          archvd8regs[-VDREGBEG-op1],
+	                          archvd8regs[-VDREGBEG-op1],
+                                  FCCREGS[-FCC0-op3]);
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDCMOV1_W4:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op3 < 0 && op2 != 0);
+         #endif
+            if (op2 > 0) /* only src2(here op2) can be mem */
+               ap->next = PrintAssln("\tvblendvpd\t%s,%s,%s,%s\n", 
+	                             archvd4regs[-VDREGBEG-op3],
+                                     GetDeref(op2),
+	                             archvd4regs[-VDREGBEG-op1],
+	                             archvd4regs[-VDREGBEG-op1]);
+            else
+               ap->next = PrintAssln("\tvblendvpd\t%s,%s,%s,%s\n", 
+	                             archvd4regs[-VDREGBEG-op3],
+                                     archvd4regs[-VDREGBEG-op2],
+	                             archvd4regs[-VDREGBEG-op1],
+	                             archvd4regs[-VDREGBEG-op1]);
+            break;
+      #endif
+      /*
       case VDCMOV2:
          #if defined(AVX512) 
             assert( (op1 < 0) && (op3 < 0) && (op2 < 0));
@@ -3691,6 +4719,32 @@ struct assmln *lil2ass(BBLOCK *bbase)
 	    fko_error(__LINE__, "This CMOV is Not found in this x86 arch!");
          #endif
          break;
+      */
+      #ifdef AVX512
+      case VDCMOV2_W8:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( (op1 < 0) && (op3 < 0) && (op2 < 0));
+         #endif
+            ap->next = PrintAssln("\tvblendmpd\t%s,%s,%s {%s}\n", 
+                                  archvd8regs[-VDREGBEG-op1],
+	                          archvd8regs[-VDREGBEG-op2],
+	                          archvd8regs[-VDREGBEG-op1],
+                                  FCCREGS[-FCC0-op3]);
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX)
+      case VDCMOV2_W4:
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( (op1 < 0) && (op3 < 0) && (op2 < 0));
+         #endif
+            ap->next = PrintAssln("\tvblendvpd\t%s,%s,%s,%s\n", 
+	                          archvd4regs[-VDREGBEG-op3],
+                                  archvd4regs[-VDREGBEG-op1],
+	                          archvd4regs[-VDREGBEG-op2],
+	                          archvd4regs[-VDREGBEG-op1]);
+         break;
+      #endif
+   #if 0
 /*
  * NOTE: can use PSHUFD for case where dest is output only
  */
@@ -3890,7 +4944,6 @@ struct assmln *lil2ass(BBLOCK *bbase)
             }
 
          #else
-
          /*cp = imap2cmap(SToff[op3-1].i);*/
          if (cp[0] == 0 && cp[1] == 2)
             ap->next = PrintAssln("\tunpcklpd\t%s,%s\n", 
@@ -3959,9 +5012,241 @@ struct assmln *lil2ass(BBLOCK *bbase)
          }
          #endif
          break;
+   #endif
+   #if defined(AVX512) || defined(AVX)
+      case VDSHUF_W4:
+           if (cp[3] == 3 && cp[2] == 2 && cp[1] == 4 && cp[0] == 0)
+               ap->next = PrintAssln("\tunpcklpd\t%s,%s\n", 
+                                     archxmmregs[-VDREGBEG-op2],
+                                     archxmmregs[-VDREGBEG-op1]);
+           else if (cp[3] == 5 && cp[2] == 4 && cp[1] == 1 && cp[0] == 0)
+               ap->next = PrintAssln("\tvinsertf128\t$1, %s, %s, %s\n", 
+                                     archxmmregs[-VDREGBEG-op2],
+                                     archvd4regs[-VDREGBEG-op1],
+                                     archvd4regs[-VDREGBEG-op1]);
+           else if ( op1 == op2 && 
+                     cp[3] == 3 && cp[2] == 2 && cp[1] == 1 && cp[0] == 1)
+               ap->next = PrintAssln("\tunpckhpd\t%s,%s\n", 
+                                     archxmmregs[-VDREGBEG-op2],
+                                     archxmmregs[-VDREGBEG-op1]); 
+           else if ( op1 == op2 && 
+                     cp[3] == 3 && cp[2] == 2 && cp[1] == 3 && cp[0] == 2)
+               ap->next = PrintAssln("\tvextractf128\t$1, %s, %s\n", 
+                                     archvd4regs[-VDREGBEG-op1],
+                                     archxmmregs[-VDREGBEG-op2]);
+           else
+         #ifdef AVX2
+         if (op1 == op2 || (cp[3] > 3 && cp[2] > 3 && cp[1] > 3 && cp[0] > 3)) 
+         {
+            for (i=0; i < 4; i++) 
+               if (cp[i] > 3) cp[i] -= 4;
+            j = 0;
+            for (i=0; i < 4; i++)
+               j |= cp[i] << (i*2);
+            ap->next = PrintAssln("\tvpermpd\t$0x%x,%s,%s\n",
+                    j, archvd4regs[-VDREGBEG-op2], archvd4regs[-VDREGBEG-op1]);
+         }
+         else 
+         #endif
+/*
+ *          Generalized combination :
+ *          cp represents the position of destination:
+ *          cp3,cp2,cp1,cp0   rd[3,2,1,0]
+ *          value of cp can be 0~7: 0~3 represents double of rd; 
+ *          4~7 represents double of rs.
+ *          Right now we need following combination:
+ *             0x3276  => rd[127:0] = rs[255:128], rd[255:128]=rd[255:128]
+ *             0x3215  => rd[63:0] = rs[127:64], rd[255:64]=rd[255:64]
+ *             0x0000  => rd[255:192,191:128,127:64,63:0] = rd[63:0] 
+ *             0x2200  => rd[127:64,63:0]=rd[63:0]; 
+ *                        rd[255:192,191:128]=rd[191:128] 
+ */         
+            if (cp[3]==0 && cp[2]==0 &&cp[1]==0 && cp[0]==0) 
+            {
+               assert(op1 == op2);
+/*           
+ *             need 2 instructions for that:
+ *                vperm2f128 0,op1,op1,op1
+ *                vshufpd 0,op1,op1,op1
+ *             Note: vmovddup op1,op1 also can be used instead of vshufpd   
+ */           
+               ap->next = PrintAssln("\tvperm2f128\t$%d,%s,%s,%s\n", 0,
+                                     archvd4regs[-VDREGBEG-op1], 
+                                     archvd4regs[-VDREGBEG-op1], 
+                                     archvd4regs[-VDREGBEG-op1]);
+               ap=ap->next;
+               ap->next = PrintAssln("\tvshufpd\t$%d,%s,%s,%s\n", 0,
+                                     archvd4regs[-VDREGBEG-op1], 
+                                     archvd4regs[-VDREGBEG-op1], 
+                                     archvd4regs[-VDREGBEG-op1]);
+            } 
+            else if (cp[3] == 2 && cp[2] == 2 && cp[1] == 0 && cp[0] ==0)
+            {
+               assert(op1==op2);
+               ap->next = PrintAssln("\tvmovddup\t%s,%s\n",
+                                     archvd4regs[-VDREGBEG-op1], 
+                                     archvd4regs[-VDREGBEG-op1]);
+            }
+            else if (cp[3] == 3 && cp[2] == 2 && cp[1] == 7 && cp[0] == 6)
+               ap->next = PrintAssln("\tvperm2f128\t$0x31,%s,%s,%s\n",
+                                     archvd4regs[-VDREGBEG-op1], /* src2*/ 
+                                     archvd4regs[-VDREGBEG-op2], 
+                                     archvd4regs[-VDREGBEG-op1]);
+            else if (cp[3] == 3 && cp[2] == 2 && cp[1] == 4 && cp[0] == 0)
+            {
+               ap->next = PrintAssln("\tunpcklpd\t%s,%s\n", 
+                                     archxmmregs[-VDREGBEG-op2],
+                                     archxmmregs[-VDREGBEG-op1]);
+            
+            }
+            else if (cp[3] == 3 && cp[2] == 2 && cp[1] == 1 && cp[0] == 5)
+            {
+               ap->next = PrintAssln("ERROR:\t%s %d %d %d\n", 
+                                     instmnem[ip->inst[0]], op1, op2, op3);
+               fko_error(__LINE__, 
+                     "Not implemented this VDSHUF_W4 for AVX yet!");         
+            }
+            else if (cp[3] == 3 && cp[2] == 7 && cp[1] == 1 && cp[0] == 5)
+               /*ap->next = PrintAssln("\tvshufpd\t$0x0F,%s,%s,%s\n",
+                                       archvdregs[-VDREGBEG-op1],  
+                                       archvdregs[-VDREGBEG-op2], 
+                                       archvdregs[-VDREGBEG-op1]);
+               */
+               ap->next = PrintAssln("\tvunpckhpd\t%s,%s,%s\n", 
+                                     archvd4regs[-VDREGBEG-op1],
+                                     archvd4regs[-VDREGBEG-op2],
+                                     archvd4regs[-VDREGBEG-op1]);
+            else if (cp[3] == 6 && cp[2] == 2 && cp[1] == 4 && cp[0] == 0)
+               ap->next = PrintAssln("\tvunpcklpd\t%s,%s,%s\n", 
+                                     archvd4regs[-VDREGBEG-op2], /* src2 */
+                                     archvd4regs[-VDREGBEG-op1],
+                                     archvd4regs[-VDREGBEG-op1]);
+/*
+ *          if op1 == op2 and the upper half are same as destination
+ *          FIXME: Although in HIL, we use same operand: op1==op2
+ *          repeateable optimization may change it to a diff src than dest
+ *          NOTE: V[F/D]SHUF instruciton is a inst of dest_inuse_implecitly
+ *          If 2nd operand is also dest, it is kind of redundant... no way to
+ *          manage that !!!
+ */
+            else if ( (op1 == op2) && cp[3] == 3 && cp[2] == 2)
+            {
+               for (i=0; i < 2; i++)   /* dest & src are same*/
+                  if (cp[0] > 4) cp[0] -= 4;
+               if (cp[0] > 1 && cp[1] > 1) /* shift the upper half to lower*/
+               {
+                  ap->next = PrintAssln("\tvperm2f128\t$%d,%s,%s,%s\n", 0x11,
+                                        archvd4regs[-VDREGBEG-op1], 
+                                        archvd4regs[-VDREGBEG-op1], 
+                                        archvd4regs[-VDREGBEG-op1]);
+                  ap=ap->next;
+                  cp[0] -= 2;
+                  cp[1] -= 2;
+               }
+               
+               if (cp[0] > 1 || cp[1] > 1)
+                  fko_error(__LINE__, "Not implemented VDHSUF: %x",
+                           SToff[op3-1].i); 
+
+               if (cp[0] == 0)
+               {
+                  if (cp[1] == 0)
+                     ap->next = PrintAssln("\tunpcklpd\t%s,%s\n",
+                                           archxmmregs[-VDREGBEG-op1], 
+                                           archxmmregs[-VDREGBEG-op1]);
+                  else
+                     fko_error(__LINE__, "Useless VDSHUF_W4");
+               }
+               else /* cp[0] == 1*/
+               {
+                  if (cp[1] == 0)
+                     ap->next = PrintAssln("\tshufpd\t%d,%s,%s\n",1,
+                                           archxmmregs[-VDREGBEG-op1], 
+                                           archxmmregs[-VDREGBEG-op1]);
+                  else /* cp[0] == 1 && cp[1] == 1*/
+                  {
+                     ap->next = PrintAssln("\tunpckhpd\t%s,%s\n",
+                                           archxmmregs[-VDREGBEG-op1], 
+                                           archxmmregs[-VDREGBEG-op1]);
+                  }
+               }    
+            }
+            else 
+               fko_error(__LINE__, 
+                     "Not implemented VDSHUF_W4 %d, %d, 0x%x for AVX!",
+                         op1, op2, SToff[op3-1].i);    
+         break;
+   #endif
+      case VDSHUF_W2:
+         if (cp[0] == 0 && cp[1] == 2)
+            ap->next = PrintAssln("\tunpcklpd\t%s,%s\n", 
+               archvd2regs[-VDREGBEG-op2], archvd2regs[-VDREGBEG-op1]);
+         else if (cp[0] == 0 && cp[1] == 1)
+            fko_error(__LINE__, "Useless VDSHUF");
+         else if (cp[0] == 2 && cp[1] == 3)
+            ap->next = PrintAssln("\tmovapd\t%s,%s\n", 
+               archvd2regs[-VDREGBEG-op2], archvd2regs[-VDREGBEG-op1]);
+         else if (cp[0] == 1 && cp[1] == 3)
+            ap->next = PrintAssln("\tunpckhpd\t%s,%s\n", 
+               archvd2regs[-VDREGBEG-op2], archvd2regs[-VDREGBEG-op1]);
+         else if (cp[0] < 2 && cp[1] > 1 && cp[1] < 4) /* shufpd */
+         {
+            i = cp[0];
+            if (cp[1] == 3)
+               i |= 2;
+            ap->next = PrintAssln("\tshufpd\t$%d,%s,%s\n", i,
+               archvd2regs[-VDREGBEG-op2], archvd2regs[-VDREGBEG-op1]);
+         }
+         else
+         {
+            if (op1 == op2)  /* any shuffling is possible if both regs same */
+            {
+               for (i=0; i < 2; i++)
+                  if (cp[i] > 1) cp[i] -= 2;
+               if (cp[0] == 0)
+               {
+                  if (cp[1] == 0)
+                     ap->next = PrintAssln("\tunpcklpd\t%s,%s\n", 
+                        archvd2regs[-VDREGBEG-op2], archvd2regs[-VDREGBEG-op1]);
+                  else
+                     fko_error(__LINE__, "Useless VDSHUF");
+               }
+               else /* cp[0] == 1 */
+               {
+                  if (cp[1] == 0)  /* cp[0] == 1 && cp[1] == 0 */
+                     ap->next = PrintAssln("\tshufpd\t$%d,%s,%s\n", 1,
+                        archvd2regs[-VDREGBEG-op2], archvd2regs[-VDREGBEG-op1]);
+
+                  else /* cp[0] == 1 && cp[1] == 1 */
+                     ap->next = PrintAssln("\tunpckhpd\t%s,%s\n", 
+                        archvd2regs[-VDREGBEG-op2], archvd2regs[-VDREGBEG-op1]);
+               }
+            }
+/*
+ *          Can use pshufd if all ops come from source
+ */
+            else if (cp[0] > 1 && cp[1] > 1)
+            {
+               if (cp[0] == 2)
+                  j = 0x2;
+               else if (cp[0] = 3)
+                  j = 0xE;
+               if (cp[1] == 2)
+                  j |= 0x00;
+               else if (cp[1] == 3)
+                  j |= 0xE0;
+               ap->next = PrintAssln("\tpshufd\t$0x%x,%s,%s\n",
+                  j, archvd2regs[-VDREGBEG-op2], archvd2regs[-VDREGBEG-op1]);
+            }
+            else
+               fko_error(__LINE__, "No such shuffle inst, imap=%d,%d!\n",
+                         cp[0], cp[1]);
+         }
+      break;
 /*
  *    Two special shuffle, specially needed in avx
  */
+      #if 0
       case VDHIHALF:
 /*
  *       vr0[1,0], vr1[1,0], vr2[1,0]: vr0[0] = vr1[1]; vr0[1] = vr2[1]; 
@@ -3982,7 +5267,30 @@ struct assmln *lil2ass(BBLOCK *bbase)
             fko_error(__LINE__, "Not implemented this instruction in SSE yet!");
          #endif
          break;
-
+      #endif
+    
+   #if defined(AVX512) || defined(AVX)
+      case VDHIHALF_W4:
+/*
+ *       vr0[1,0], vr1[1,0], vr2[1,0]: vr0[0] = vr1[1]; vr0[1] = vr2[1]; 
+ */
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0 && op3 != 0);
+         #endif
+            if ( op3 > 0)
+               ap->next = PrintAssln("\tvperm2f128\t$0x31,%s,%s,%s\n",
+                                     GetDeref(op3), 
+                                     archvd4regs[-VDREGBEG-op2], 
+                                     archvd4regs[-VDREGBEG-op1]);
+            else
+               ap->next = PrintAssln("\tvperm2f128\t$0x31,%s,%s,%s\n",
+                                     archvd4regs[-VDREGBEG-op3], 
+                                     archvd4regs[-VDREGBEG-op2], 
+                                     archvd4regs[-VDREGBEG-op1]);
+            
+         break;
+   #endif
+      #if 0
       case VDLOHALF:
 /*
  *       vr0[1,0], vr1[1,0], vr2[1,0]: vr0[0] = vr1[0]; vr0[1] = vr2[0]; 
@@ -4003,6 +5311,28 @@ struct assmln *lil2ass(BBLOCK *bbase)
             fko_error(__LINE__, "Not implemented this instruction in SSE yet!");
          #endif
          break;
+      #endif
+   #if defined(AVX512) || defined(AVX)
+      case VDLOHALF_W4:
+/*
+ *       vr0[1,0], vr1[1,0], vr2[1,0]: vr0[0] = vr1[0]; vr0[1] = vr2[0]; 
+ */
+         #if IFKO_DEBUG_LEVEL >= 1
+            assert( op1 < 0 && op2 < 0 && op3 != 0);
+         #endif
+         if ( op3 > 0)
+            ap->next = PrintAssln("\tvperm2f128\t$0x20,%s,%s,%s\n",
+                                  GetDeref(op3), 
+                                  archvd4regs[-VDREGBEG-op2], 
+                                  archvd4regs[-VDREGBEG-op1]);
+         else
+            ap->next = PrintAssln("\tvperm2f128\t$0x20,%s,%s,%s\n",
+                                  archvd4regs[-VDREGBEG-op3], 
+                                  archvd4regs[-VDREGBEG-op2], 
+                                  archvd4regs[-VDREGBEG-op1]);
+         break;
+      #endif
+/* ========================================================================= */
 /*
  *    This instruction is exactly same as VFMOVHALF but using dregs
  *    FIXME: can we have just one instruction like V[X]MOVHALF
