@@ -543,7 +543,7 @@ enum inst
    VILD_W4,                /* [vr0], [memA]  : vr0 = mem */
    VILD_W2,                /* [vr0], [memA]  : vr0 = mem */
    /* VLDU,    */            /* [vr0], [memA]  : vr0 = unaligned mem */
-   VSLDU_W16               /* [vr0], [memA]  : vr0 = unaligned mem */
+   VSLDU_W16,               /* [vr0], [memA]  : vr0 = unaligned mem */
    VSLDU_W8,               /* [vr0], [memA]  : vr0 = unaligned mem */
    VSLDU_W4,               /* [vr0], [memA]  : vr0 = unaligned mem */
    VILDU_W8,               /* [vr0], [memA]  : vr0 = unaligned mem */
@@ -654,8 +654,17 @@ enum inst
 /*
  * Majedul: this is to convert mask into INT
  */
+#if 0
    CVTMASKFI, 
    CVTMASKDI,
+#else
+   CVTMASKFI_W16, 
+   CVTMASKFI_W8, 
+   CVTMASKFI_W4, 
+   CVTMASKDI_W8,
+   CVTMASKDI_W4,
+   CVTMASKDI_W2,
+#endif
 /*
  * Dummy CMP instruction which are needed for ReductionVector translation.
  * I don't find their implementation yet.
@@ -1253,8 +1262,17 @@ char *instmnem[] =
 /*
  * Majedul: experimental... to convert mask from floating point to Int
  */
+#if 0
    "CVTMASKFI",
    "CVTMASKDI",
+#else
+   "CVTMASKFI_W16", 
+   "CVTMASKFI_W8", 
+   "CVTMASKFI_W4", 
+   "CVTMASKDI_W8",
+   "CVTMASKDI_W4",
+   "CVTMASKDI_W2",
+#endif
 
 /*
  * Dummy inst for redundant vector transformation
