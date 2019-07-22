@@ -10174,7 +10174,7 @@ struct assmln *lil2ass(BBLOCK *bbase)
             fko_error(__LINE__, "No such shuffle inst, imap=%d,%d,%d,%d!\n",
                          cp[0], cp[1], cp[2], cp[3]);
          break;
-      
+      #endif   
       case VISHUF_W2:
             fko_error(__LINE__, "Not implemented VISHUF for SSE yet");
          break;
@@ -10206,9 +10206,41 @@ struct assmln *lil2ass(BBLOCK *bbase)
          ap->next = PrintAssln("\tcmovnc\t%s, %s\n", GetIregOrDeref(op2), 
                               archiregs[-IREGBEG-op1]);
          break;
-/*===========================================================================*/
-/* --------------------------------------------------------------------*/      
-   #ifdef AVX2  
+/*
+ *    NOTE: we treated k-regs as FCCREGS.. it can be ICCREGS as well 
+ */
+      #ifdef AVX512
+      case VSCMOV1_W16:
+         assert( (op1 < 0) && (op3 < 0));
+         if (op2 < 0) /* only src2(here op2) can be mem */
+            ap->next = PrintAssln("\tvpblendmd\t%s,%s,%s {%s}\n", 
+	                          archvs16regs[-VIREGBEG-op2],
+                                  archvs16regs[-VIREGBEG-op1],
+	                          archvs16regs[-VIREGBEG-op1],
+                                  FCCREGS[-FCC0-op3]); /* k-regs */
+         else
+            ap->next = PrintAssln("\tvpblendmd\t%s,%s,%s,%s\n", 
+                                  GetDeref(op2),
+	                          archvs16regs[-VIREGBEG-op1],
+	                          archvs16regs[-VIREGBEG-op1],
+                                  FCCREGS[-FCC0-op3]);
+         break;
+      case VICMOV1_W8:
+         assert( (op1 < 0) && (op3 < 0));
+         if (op2 < 0) /* only src2(here op2) can be mem */
+            ap->next = PrintAssln("\tvpblendmq\t%s,%s,%s {%s}\n", 
+	                          archvi8regs[-VIREGBEG-op2],
+                                  archvi8regs[-VIREGBEG-op1],
+	                          archvi8regs[-VIREGBEG-op1],
+                                  FCCREGS[-FCC0-op3]); /* k-regs */
+         else
+            ap->next = PrintAssln("\tvpblendmq\t%s,%s,%s,%s\n", 
+                                  GetDeref(op2),
+	                          archvi8regs[-VIREGBEG-op1],
+	                          archvi8regs[-VIREGBEG-op1],
+                                  FCCREGS[-FCC0-op3]);
+         break;
+      #endif
 /*
  * Read this note before using following two instructions
  * =========================== NOTE ===========================================
@@ -10221,7 +10253,8 @@ struct assmln *lil2ass(BBLOCK *bbase)
  *    3. as long as we prepare right mask value, vpblendvb works for both
  * ============================================================================
  */
-      case VSCMOV1: case VICMOV1:  /* Hybrid .... dest = (mask==0)? dest: src */
+      #if defined(AVX512) || defined(AVX2)
+      case VSCMOV1_W8: case VICMOV1_W4:  /* Hybrid .... dest = (mask==0)? dest: src */
          op3 = -op3;
 /*
  *       NOTE: we are implementing this using vpblendvb (AVX2) but use imm!!
@@ -10276,7 +10309,27 @@ struct assmln *lil2ass(BBLOCK *bbase)
                       VIREGEND);
          
          break;
-      case VSCMOV2: case VICMOV2:  /* dest = (mask==0)? src: dest */
+      #endif
+      #ifdef AVX512
+      case VSCMOV2_W16:   /* dest = (mask==0)? src: dest */
+         assert(op1 < 0 && op3 < 0 && op2 < 0);
+         ap->next = PrintAssln("\tvpblendmd\t%s,%s,%s {%s}\n", 
+                               archvs16regs[-VIREGBEG-op1],
+	                       archvs16regs[-VIREGBEG-op2],
+	                       archvs16regs[-VIREGBEG-op1],
+                               FCCREGS[-FCC0-op3]);
+         break;
+      case VICMOV2_W8:
+         assert(op1 < 0 && op3 < 0 && op2 < 0);
+         ap->next = PrintAssln("\tvpblendmq\t%s,%s,%s {%s}\n", 
+                               archvi8regs[-VIREGBEG-op1],
+	                       archvi8regs[-VIREGBEG-op2],
+	                       archvi8regs[-VIREGBEG-op1],
+                               FCCREGS[-FCC0-op3]);
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX2)
+      case VSCMOV2_W8: case VICMOV2_W4:  /* dest = (mask==0)? src: dest */
          op3 = -op3;
          if (op3 >= VFREGBEG && op3 < VFREGEND)
          {
@@ -10300,8 +10353,23 @@ struct assmln *lil2ass(BBLOCK *bbase)
             fko_error(__LINE__, "Expecting Mask value on floating point regs\n");
          
          break;
-
-      case VICMPWGT:
+      #endif
+      #ifdef AVX512
+      case VICMPWGT_W8:
+         if (op3 > 0)
+            ap->next = PrintAssln("\tvpcmpgtq\t%s,%s,%s\n",
+                                  GetDeref(op3),
+                                  archvi8regs[-VIREGBEG-op2],
+                                  FCCREGS[-FCC0-op1]);
+         else
+            ap->next = PrintAssln("\tvcmpps\t$0,%s,%s,%s\n",
+                                  archvi8regs[-VIREGBEG-op3],
+                                  archvi8regs[-VIREGBEG-op2],
+                                  FCCREGS[-FCC0-op1]);
+         break;
+      #endif
+      #if defined(AVX512) || defined(AVX2)
+      case VICMPWGT_W4:
          #ifdef X86_64
             ap->next = PrintAssln("\tvpcmpgtq\t%s,%s,%s\n", 
 	                          archviregs[-VIREGBEG-op3],
@@ -10314,7 +10382,8 @@ struct assmln *lil2ass(BBLOCK *bbase)
 	                          archviregs[-VIREGBEG-op1]); 
          #endif
          break;
-#endif         
+      #endif
+/*===========================================================================*/
 /*
  *  HERE HERE HERE:
  */
