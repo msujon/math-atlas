@@ -5,7 +5,7 @@
 #include "fko.h"
 #include "fko_arch.h"
 
-static int LocalLoad(short id)
+static int LocalLoad(short id, short vl)
 /*
  * Loads the value stored in local id
  * RETURNS: register loaded to
@@ -60,10 +60,26 @@ static int LocalLoad(short id)
  */
 #if 1
       case T_VFLOAT:
-         inst = VFLD;
+         /*inst = VFLD;*/
+         if (vl==16)
+            inst = VFLD_W16;
+         else if (vl==8)
+            inst = VFLD_W8;
+         else if (vl==4)
+            inst = VFLD_W4;
+         else
+            fko_error(__LINE__, "Unsupported vlen!!");
          break;
       case T_VDOUBLE:
-         inst = VDLD;
+         /*inst = VDLD;*/
+         if (vl==8)
+            inst = VDLD_W8;
+         else if (vl==4)
+            inst = VDLD_W4;
+         else if (vl==2)
+            inst = VDLD_W2;
+         else
+            fko_error(__LINE__, "Unknown vlen!!");
          break;
 #endif
       default:
@@ -74,7 +90,7 @@ static int LocalLoad(short id)
    return(reg);
 }
 
-static int Scalar2VRegLoad(short sid)
+static int Scalar2VRegLoad(short sid, short vl)
 /*
  * this function loads a scalar variable into vector register 
  */
@@ -90,11 +106,25 @@ static int Scalar2VRegLoad(short sid)
       {
          case T_FLOAT:
             vtyp = T_VFLOAT;
-            inst = VFLDS;
+            if (vl==16)
+               inst = VFLDS_W16;
+            else if (vl==8)
+               inst = VFLDS_W8;
+            else if (vl==4)
+               inst = VFLDS_W4;
+            else
+               fko_error(__LINE__, "Unknown vlen!!");
             break;
          case T_DOUBLE:
             vtyp = T_VDOUBLE;
-            inst = VDLDS;
+            if (vl==8)
+               inst = VDLDS_W8;
+            else if (vl==4)
+               inst = VDLDS_W4;
+            else if (vl==2)
+               inst = VDLDS_W2;
+            else
+               fko_error(__LINE__, "Unknown vlen!!");
             break;
          default:
             fko_error(__LINE__, "type not supported!!");
@@ -108,7 +138,7 @@ static int Scalar2VRegLoad(short sid)
    return(reg);
 }
 
-static void LocalStore(short id, short sreg)
+static void LocalStore(short id, short sreg, short vl)
 {
    short inst;
 
@@ -128,10 +158,26 @@ static void LocalStore(short id, short sreg)
  */
 #if 1
       case T_VFLOAT:
-         inst = VFST;
+         /*inst = VFST;*/
+         if (vl==16)
+            inst = VFST_W16;
+         else if (vl==8)
+            inst = VFST_W8;
+         else if (vl==4)
+            inst = VFST_W4;
+         else
+            fko_error(__LINE__, "Unsupported vlen!!");
          break;
       case T_VDOUBLE:
-         inst = VDST;
+         /*inst = VDST;*/
+         if (vl==8)
+            inst = VDST_W8;
+         else if (vl==4)
+            inst = VDST_W4;
+         else if (vl==2)
+            inst = VDST_W2;
+         else
+            fko_error(__LINE__, "Unknown vlen!!");
          break;
 #endif
    default:
@@ -140,7 +186,7 @@ static void LocalStore(short id, short sreg)
    InsNewInst(NULL, NULL, NULL, inst, SToff[id-1].sa[2], -sreg, 0);
 }
 
-void DoConvert(short dest, short src)
+void DoConvert(short dest, short src, short vl)
 {
    fprintf(stderr, "Conversions not yet supported\n");
    exit(-1);
@@ -165,7 +211,7 @@ void DoComment(char *str)
    InsNewInst(NULL, NULL, NULL, COMMENT, STstrconstlookup(str), 0, 0);
 }
 
-void DoMove(short dest, short src)
+void DoMove(short dest, short src, short vl)
 {
    short rsrc;
    int sflag, type;
@@ -232,15 +278,15 @@ void DoMove(short dest, short src)
       else
          fko_error(__LINE__, "unsupported constant!");
       
-      LocalStore(dest, rsrc);
+      LocalStore(dest, rsrc, vl);
 #endif
    }
    else if (FLAG2TYPE(STflag[dest-1]) == FLAG2TYPE(sflag))
    {
-      rsrc = LocalLoad(src);
-      LocalStore(dest, rsrc);
+      rsrc = LocalLoad(src, vl);
+      LocalStore(dest, rsrc, vl);
    }
-   else DoConvert(dest, src);
+   else DoConvert(dest, src, vl);
    GetReg(-1);
 }
 
@@ -294,20 +340,20 @@ static void FixDeref(short ptr)
 /*
  *    Load beginning of array
  */
-      SToff[ptr].sa[0] = -LocalLoad(SToff[ptr].sa[0]);
+      SToff[ptr].sa[0] = -LocalLoad(SToff[ptr].sa[0], 1);
 /*
  *    Load index register if needed
  *    we kept mul and con intact 
  */
       if (SToff[ptr].sa[1])
-         SToff[ptr].sa[1] = -LocalLoad(SToff[ptr].sa[1]);      
+         SToff[ptr].sa[1] = -LocalLoad(SToff[ptr].sa[1], 1);      
    }
    else /* kept the old code and logic unchanged for all other case*/
    {
 /*
  *    Load beginning of array
  */
-      SToff[ptr].sa[0] = -LocalLoad(SToff[ptr].sa[0]);
+      SToff[ptr].sa[0] = -LocalLoad(SToff[ptr].sa[0], 1);
 /*
  *    Multiply constant by mul
  *    FIXED: for const index, we already multiply datasize at the beginning
@@ -319,7 +365,7 @@ static void FixDeref(short ptr)
  */
       if (SToff[ptr].sa[1])
       {
-         SToff[ptr].sa[1] = -LocalLoad(SToff[ptr].sa[1]);
+         SToff[ptr].sa[1] = -LocalLoad(SToff[ptr].sa[1], 1);
 /*
  *       Some architectures cannot multiply the index register by some (or any)
  *       constants, and in this case generate an extra shift instruction
@@ -348,9 +394,10 @@ static void FixDeref(short ptr)
    }
 }
 
-void DoArrayStore(short ptr, short id)
+void DoArrayStore(short ptr, short id, short vl)
 {
    short lreg, k, type;
+   short inst;
 
    k = ptr-1;
    type = FLAG2TYPE(STflag[id-1]);
@@ -359,7 +406,7 @@ void DoArrayStore(short ptr, short id)
               STname[SToff[k].sa[0]-1], STflag[SToff[k].sa[0]-1], 
               STname[id-1], STflag[id-1]);
    #endif
-   lreg = LocalLoad(id);
+   lreg = LocalLoad(id, vl);
 /*
  * NOTE: we added vector store where the array type and variable type
  * may not exactly match. we may have DOUBLE pointer but the variable is 
@@ -397,12 +444,28 @@ void DoArrayStore(short ptr, short id)
    case T_DOUBLE:
       InsNewInst(NULL, NULL, NULL, FSTD, ptr, -lreg, 0);
       break;
-#if 1
+#if 1 /* vector intrinsic */
    case T_VFLOAT:
-      InsNewInst(NULL, NULL, NULL, VFST, ptr, -lreg, 0);
+      if (vl==16)
+         inst = VFST_W16;
+      else if (vl==8)
+         inst = VFST_W8;
+      else if (vl==4)
+         inst = VFST_W4;
+      else
+         fko_error(__LINE__, "Unsupported vlen!!");
+      InsNewInst(NULL, NULL, NULL, inst, ptr, -lreg, 0);
       break;
    case T_VDOUBLE:
-      InsNewInst(NULL, NULL, NULL, VDST, ptr, -lreg, 0);
+      if (vl==8)
+         inst = VDST_W8;
+      else if (vl==4)
+         inst = VDST_W4;
+      else if (vl==2)
+         inst = VDST_W2;
+      else
+         fko_error(__LINE__, "Unknown vlen!!");
+      InsNewInst(NULL, NULL, NULL, inst, ptr, -lreg, 0);
       break;
 #endif
    default:
@@ -411,7 +474,7 @@ void DoArrayStore(short ptr, short id)
    GetReg(-1);
 }
 
-void DoArrayLoad(short id, short ptr)
+void DoArrayLoad(short id, short ptr, short vl)
 /*
  * id is ST index, ptr is DT index
  */
@@ -440,7 +503,7 @@ void DoArrayLoad(short id, short ptr)
             k = STiconstlookup(31);
             InsNewInst(NULL, NULL, NULL, SHL, -areg, -areg, k);
             InsNewInst(NULL, NULL, NULL, SAR, -areg, -areg, k);
-            LocalStore(id, areg);
+            LocalStore(id, areg, 1);
             GetReg(-1);
             return;
          }
@@ -455,10 +518,26 @@ void DoArrayLoad(short id, short ptr)
       break;
 #if 1
    case T_VFLOAT:
-      ld = VFLD;
+      /*ld = VFLD;*/
+      if (vl==16)
+         ld = VFLD_W16;
+      else if (vl==8)
+         ld = VFLD_W8;
+      else if (vl==4)
+         ld = VFLD_W4;
+      else
+         fko_error(__LINE__, "Unsupported vlen!!");
       break;
    case T_VDOUBLE:
-      ld = VDLD;
+      /*ld = VDLD;*/
+      if (vl==8)
+         ld = VDLD_W8;
+      else if (vl==4)
+         ld = VDLD_W4;
+      else if (vl==2)
+         ld = VDLD_W2;
+      else
+         fko_error(__LINE__, "Unknown vlen!!");
       break;
 #endif
    default:
@@ -466,11 +545,11 @@ void DoArrayLoad(short id, short ptr)
    }
    areg = GetReg(type);
    InsNewInst(NULL, NULL, NULL, ld, -areg, ptr, 0);
-   LocalStore(id, areg);
+   LocalStore(id, areg, vl);
    GetReg(-1);
 }
 
-void DoArrayBroadcast(short id, short ptr)
+void DoArrayBroadcast(short id, short ptr, short vl)
 /*
  * special load which load scalar element from memory and broadcast it through
  * vector register;
@@ -485,17 +564,33 @@ void DoArrayBroadcast(short id, short ptr)
    switch(type)
    {
       case T_VFLOAT:
-         ld = VFLDSB;
+         /*ld = VFLDSB;*/
+         if (vl==16)
+            ld = VFLDSB_W16;
+         else if (vl==8)
+            ld = VFLDSB_W8;
+         else if (vl==4)
+            ld = VFLDSB_W4;
+         else
+            fko_error(__LINE__, "Unsupported vlen!!");
          break;
       case T_VDOUBLE:
-         ld = VDLDSB;
+         /*ld = VDLDSB;*/
+         if (vl==8)
+            ld = VDLDSB_W8;
+         else if (vl==4)
+            ld = VDLDSB_W4;
+         else if (vl==2)
+            ld = VDLDSB_W2;
+         else
+            fko_error(__LINE__, "Unknown vlen!!");
          break;
       default:
          fko_error(__LINE__, "Unknown type %d\n", type);
    }
    areg = GetReg(type);
    InsNewInst(NULL, NULL, NULL, ld, -areg, ptr, 0);
-   LocalStore(id, areg);
+   LocalStore(id, areg, vl);
    GetReg(-1);
 }
 
@@ -523,15 +618,15 @@ void HandlePtrArithNoSizeofUpate(short dest, short src0, char op, short src1)
    if (!IS_PTR(STflag[src0-1]))
       fko_error(__LINE__,"Expecting <ptr> = <ptr> + <int>");
       
-   rs0 = LocalLoad(src0); /* load src0 */ 
+   rs0 = LocalLoad(src0, 1); /* load src0 */ 
    flag = STflag[src1-1];
    if (!IS_CONST(flag))
-      rs1 = LocalLoad(src1); /* load src1 */
+      rs1 = LocalLoad(src1, 1); /* load src1 */
    else
       fko_error(__LINE__,"expecting var as 2nd src as a special case");
 
    InsNewInst(NULL, NULL, NULL, op == '+' ? ADD : SUB, -rs0, -rs0, -rs1);
-   LocalStore(dest, rs0);
+   LocalStore(dest, rs0, 1);
    GetReg(-1);
 }
 
@@ -570,7 +665,7 @@ void HandlePtrArith(short dest, short src0, char op, short src1)
 
    if (IS_CONST(flag))
    {
-      rs0 = LocalLoad(src0); /* load src0 */
+      rs0 = LocalLoad(src0, 1); /* load src0 */
       if (IS_INT(flag))
       #ifdef X86_64
       {
@@ -612,8 +707,8 @@ void HandlePtrArith(short dest, short src0, char op, short src1)
 /*
  *    Equivalent code for old strategy 
  */
-      rs0 = LocalLoad(src0); /* load src0 */
-      rs1 = LocalLoad(src1);
+      rs0 = LocalLoad(src0, 1); /* load src0 */
+      rs1 = LocalLoad(src1, 1);
       #ifdef X86_64
          if (IS_INT(dflag)) k = STiconstlookup(2);
          else k = STiconstlookup(type2shift(type));
@@ -625,7 +720,7 @@ void HandlePtrArith(short dest, short src0, char op, short src1)
 #endif
    }
    InsNewInst(NULL, NULL, NULL, op == '+' ? ADD : SUB, -rs0, -rs0, -rs1);
-   LocalStore(dest, rs0);
+   LocalStore(dest, rs0, 1);
    GetReg(-1);
 }
 
@@ -658,7 +753,7 @@ void Handle2dArrayPtrArith(short dest, short src0, char op, short src1)
    }
 }
 
-void DoArith(short dest, short src0, char op, short src1)
+void DoArith(short dest, short src0, char op, short src1, short vl)
 {
    short rd, rs0, rs1, rs2, type;
    enum inst inst;
@@ -698,7 +793,7 @@ void DoArith(short dest, short src0, char op, short src1)
             InsNewInst(NULL, NULL, NULL, LD, -rs1, SToff[src1-1].sa[2], 0);
          InsNewInst(NULL, NULL, NULL, DIV, -rd, -rs0, -rs1);
          /*fprintf(stderr, "DIV %d, %d, %d\n", -rd, -rs0, -rs1);*/
-         LocalStore(dest, rd);
+         LocalStore(dest, rd, 1);
          GetReg(-1);
          return;
       }
@@ -707,7 +802,7 @@ void DoArith(short dest, short src0, char op, short src1)
  * if 3 operands supported and dest != src0, use separate regs for destination
  * NOTE: for MAC, dest is also in use, so load dest later
  */
-   rs0 = LocalLoad(src0);
+   rs0 = LocalLoad(src0, vl);
    if (op != 'm' && dest != src0)
    {
       switch (type)
@@ -754,7 +849,7 @@ void DoArith(short dest, short src0, char op, short src1)
       if (src0 != src1)
       {
          if (IS_CONST(STflag[src1-1])) rs1 = -src1;
-         else rs1 = LocalLoad(src1);
+         else rs1 = LocalLoad(src1, vl);
       }
       else rs1 = rs0;
    }
@@ -780,10 +875,26 @@ void DoArith(short dest, short src0, char op, short src1)
          inst = FADDD;
          break;
       case T_VFLOAT:
-         inst = VFADD;
+         /*inst = VFADD;*/
+         if (vl==16)
+            inst = VFADD_W16;
+         else if (vl==8)
+            inst = VFADD_W8;
+         else if (vl==4)
+            inst = VFADD_W4;
+         else
+            fko_error(__LINE__, "Unsupported vlen!!");
          break;
       case T_VDOUBLE:
-         inst = VDADD;
+         /*inst = VDADD;*/
+         if (vl==8)
+            inst = VDADD_W8;
+         else if (vl==4)
+            inst = VDADD_W4;
+         else if (vl==2)
+            inst = VDADD_W2;
+         else
+            fko_error(__LINE__, "Unknown vlen!!");
          break;
       }
       break;
@@ -800,10 +911,26 @@ void DoArith(short dest, short src0, char op, short src1)
          inst = FSUBD;
          break;
       case T_VFLOAT:
-         inst = VFSUB;
+         /*inst = VFSUB;*/
+         if (vl==16)
+            inst = VFSUB_W16;
+         else if (vl==8)
+            inst = VFSUB_W8;
+         else if (vl==4)
+            inst = VFSUB_W4;
+         else
+            fko_error(__LINE__, "Unsupported vlen!!");
          break;
       case T_VDOUBLE:
-         inst = VDSUB;
+         /*inst = VDSUB;*/
+         if (vl==8)
+            inst = VDSUB_W8;
+         else if (vl==4)
+            inst = VDSUB_W4;
+         else if (vl==2)
+            inst = VDSUB_W2;
+         else
+            fko_error(__LINE__, "Unsupported vlen!!");
          break;
       }
       break;
@@ -820,10 +947,26 @@ void DoArith(short dest, short src0, char op, short src1)
          inst = FMULD;
          break;
       case T_VFLOAT:
-         inst = VFMUL;
+         /*inst = VFMUL;*/
+         if (vl==16)
+            inst = VFMUL_W16;
+         else if (vl==8)
+            inst = VFMUL_W8;
+         else if (vl==4)
+            inst = VFMUL_W4;
+         else
+            fko_error(__LINE__, "Unsupported vlen!!");
          break;
       case T_VDOUBLE:
-         inst = VDMUL;
+         /*inst = VDMUL;*/
+         if (vl==8)
+            inst = VDMUL_W8;
+         else if (vl==4)
+            inst = VDMUL_W4;
+         else if (vl==2)
+            inst = VDMUL_W2;
+         else
+            fko_error(__LINE__, "Unknown vlen!!");
          break;
       }
       break;
@@ -840,10 +983,26 @@ void DoArith(short dest, short src0, char op, short src1)
          inst = FDIVD;
          break;
       case T_VFLOAT:
-         inst = VFDIV;
+         /*inst = VFDIV;*/
+         if (vl==16)
+            inst = VFDIV_W16;
+         else if (vl==8)
+            inst = VFDIV_W8;
+         else if (vl==4)
+            inst = VFDIV_W4;
+         else
+            fko_error(__LINE__, "Unsupported vlen!!");
          break;
       case T_VDOUBLE:
-         inst = VDDIV;
+         /*inst = VDDIV;*/
+         if (vl==8)
+            inst = VDDIV_W8;
+         else if (vl==4)
+            inst = VDDIV_W4;
+         else if (vl==2)
+            inst = VDDIV_W2;
+         else
+            fko_error(__LINE__, "Unknown vlen!!");
          break;
       }
       break;
@@ -862,11 +1021,33 @@ void DoArith(short dest, short src0, char op, short src1)
             || type == T_VDOUBLE)
       {
          #ifdef ArchHasMAC
-            rd = LocalLoad(dest);
+            rd = LocalLoad(dest, vl);
             if (type == T_FLOAT) inst = FMAC;
             else if (type == T_DOUBLE) inst = FMACD;
-            else if (type == T_VFLOAT) inst = VFMAC;
-            else if (type == T_VDOUBLE) inst = VDMAC;
+            else if (type == T_VFLOAT)
+            {
+               /*inst = VFMAC;*/
+               if (vl==16)
+                  inst = VFMAC_W16;
+               else if (vl==8)
+                  inst = VFMAC_W8;
+               else if (vl==4)
+                  inst = VFMAC_W4;
+               else
+                  fko_error(__LINE__, "Unsupported vlen!!");
+            }
+            else if (type == T_VDOUBLE)
+            {
+               /*inst = VDMAC;*/
+               if (vl==8)
+                  inst = VDMAC_W8;
+               else if (vl==4)
+                  inst = VDMAC_W4;
+               else if (vl==2)
+                  inst = VDMAC_W2;
+               else
+                  fko_error(__LINE__, "Unknown vlen!!");
+            }
             else 
                fko_error(__LINE__, "MAC not supported with this type!");
          #else
@@ -896,25 +1077,58 @@ void DoArith(short dest, short src0, char op, short src1)
                   #else
                      rs2 = rs0;
                   #endif
-                  InsNewInst(NULL, NULL, NULL, VFMUL, -rs2, -rs0, -rs1);
-                  inst = VFADD;
+                  /*InsNewInst(NULL, NULL, NULL, VFMUL, -rs2, -rs0, -rs1);*/
+                  if (vl==16)
+                  {
+                     InsNewInst(NULL, NULL, NULL, VFMUL_W16, -rs2, -rs0, -rs1);
+                     inst = VFADD_W16;
+                  }
+                  else if (vl==8)
+                  {
+                     InsNewInst(NULL, NULL, NULL, VFMUL_W8, -rs2, -rs0, -rs1);
+                     inst = VFADD_W8;
+                  }
+                  else if (vl==4)
+                  {
+                     InsNewInst(NULL, NULL, NULL, VFMUL_W4, -rs2, -rs0, -rs1);
+                     inst = VFADD_W4;
+                  }
+                  else
+                     fko_error(__LINE__, "Unsupported vlen!!");
+                  /*inst = VFADD;*/
                case T_VDOUBLE:
                   #ifdef ArchHasVFPthreeOps
                      rs2 = GetReg(type);
                   #else
                      rs2 = rs0;
                   #endif
-                  InsNewInst(NULL, NULL, NULL, VDMUL, -rs2, -rs0, -rs1);
-                  inst = VDADD;
+                  if (vl==8)
+                  {
+                     InsNewInst(NULL, NULL, NULL, VDMUL_W8, -rs2, -rs0, -rs1);
+                     inst = VDADD_W8;
+                  }
+                  else if (vl==4)
+                  {
+                     InsNewInst(NULL, NULL, NULL, VDMUL_W4, -rs2, -rs0, -rs1);
+                     inst = VDADD_W4;
+                  }
+                  else if (vl==2)
+                  {
+                     InsNewInst(NULL, NULL, NULL, VDMUL_W2, -rs2, -rs0, -rs1);
+                     inst = VDADD_W2;
+                  }
+                  else
+                     fko_error(__LINE__, "Unknown vlen!!");
+                  /*inst = VDADD;*/
                   break;
                default: 
-                  fko_error(stderr, "MAC not supported with this type!");
+                  fko_error(__LINE__, "MAC not supported with this type!");
             }
 /*
  *          for addition, dest is also src0
  */
             rs1 = rs2;
-            rs0 = rd = LocalLoad(dest);
+            rs0 = rd = LocalLoad(dest, vl);
          #endif
       }
       else fko_error(__LINE__,"MAC available for floating point operands only!");
@@ -963,7 +1177,7 @@ void DoArith(short dest, short src0, char op, short src1)
  * are different. 
  */
    /* LocalStore(dest, rs0);*/
-   LocalStore(dest, rd);
+   LocalStore(dest, rd, vl);
    GetReg(-1);
 }
 
@@ -1114,11 +1328,11 @@ LOOPQ *DoLoop(short I, short start, short end, short inc,
    InsNewInst(NULL, NULL, NULL, CMPFLAG, CF_LOOP_INIT, lp->loopnum, 0);
    flag = STflag[start-1];
    assert(!IS_PTR(flag));
-   if (IS_CONST(flag)) DoMove(I, start);
+   if (IS_CONST(flag)) DoMove(I, start, 1);
    else
    {
-      ireg = LocalLoad(start);
-      LocalStore(I, ireg);
+      ireg = LocalLoad(start, 1);
+      LocalStore(I, ireg, 1);
       GetReg(-1);
    }
    InsNewInst(NULL, NULL, NULL, CMPFLAG, CF_LOOP_BODY, lp->loopnum, 0);
@@ -1140,12 +1354,12 @@ void FinishLoop(LOOPQ *lp)
  * Update loop counter
  */
    InsNewInst(NULL, NULL, NULL, CMPFLAG, CF_LOOP_UPDATE, lp->loopnum, 0);
-   DoArith(lp->I, lp->I, '+', lp->inc);
+   DoArith(lp->I, lp->I, '+', lp->inc, 1);
    InsNewInst(NULL, NULL, NULL, CMPFLAG, CF_LOOP_TEST, lp->loopnum, 0);
-   ireg = LocalLoad(lp->I);
+   ireg = LocalLoad(lp->I, 1);
    flag = STflag[lp->end-1];
    if (IS_CONST(flag)) iend = lp->end;
-   else iend = -LocalLoad(lp->end);
+   else iend = -LocalLoad(lp->end, 1);
    InsNewInst(NULL, NULL, NULL, CMP, -ICC0, -ireg, iend);
    InsNewInst(NULL, NULL, NULL, (lp->flag & L_NINC_BIT) ? JGT : JLT, 
               -PCREG, -ICC0, lp->body_label);
@@ -1165,7 +1379,7 @@ void DoLabel(char *name)
    InsNewInst(NULL, NULL, NULL, LABEL, STlabellookup(name), 0, 0);
 }
 
-void DoIf(char op, short id, short avar, char *labnam)
+void DoIf(char op, short id, short avar, char *labnam, short vl)
 {
    int flag, type;
    short cmp, ireg, ireg1, freg0, freg1, br, label;
@@ -1176,9 +1390,9 @@ void DoIf(char op, short id, short avar, char *labnam)
    type = FLAG2PTYPE(STflag[id-1]);
    if (type == T_INT)
    {
-      ireg = LocalLoad(id);
+      ireg = LocalLoad(id, vl);
       if (IS_CONST(flag)) ireg1 = -avar;
-      else ireg1 = LocalLoad(avar);
+      else ireg1 = LocalLoad(avar, vl);
       if (op != '&') InsNewInst(NULL, NULL, NULL, CMP, -ICC0, -ireg, -ireg1);
       else
          #ifdef PPC
@@ -1215,8 +1429,8 @@ void DoIf(char op, short id, short avar, char *labnam)
 #ifndef X869999
    else
    {
-      freg0 = LocalLoad(id);
-      freg1 = LocalLoad(avar);
+      freg0 = LocalLoad(id, vl);
+      freg1 = LocalLoad(avar, vl);
       cmp = (type == T_FLOAT) ? FCMP : FCMPD;
       switch(op)
       {
@@ -1249,8 +1463,8 @@ void DoIf(char op, short id, short avar, char *labnam)
       {
          assert(type == T_FLOAT || type == T_DOUBLE);
          ireg = GetReg(T_INT);
-         freg0 = LocalLoad(id);
-         freg1 = LocalLoad(avar);
+         freg0 = LocalLoad(id, vl);
+         freg1 = LocalLoad(avar, vl);
          switch(op)
          {
          case '>':
@@ -1612,7 +1826,7 @@ short AddOpt2dArrayDeref(short base, short hdm, short ldm, int unroll)
  *
  * ===========================================================================*/
 
-void DoVecInit(short vid, struct slist *elem)
+void DoVecInit(short vid, struct slist *elem, short vl)
 {
    int k;
    int flag;
@@ -1642,12 +1856,28 @@ void DoVecInit(short vid, struct slist *elem)
       if (IS_FLOAT(flag))
       {
          st0 = STfconstlookup(0.0);
-         vzero = VFZERO;
+         /*vzero = VFZERO;*/
+         if (vl==16)
+            vzero = VFZERO_W16;
+         else if (vl==8)
+            vzero = VFZERO_W8;
+         else if (vl==4)
+            vzero = VFZERO_W4;
+         else
+            fko_error(__LINE__, "Unsupported vlen!!");
       }
       else 
       {
          st0 = STdconstlookup(0.0);
-         vzero = VDZERO;
+         /*vzero = VDZERO;*/
+         if (vl==8)
+            vzero = VDZERO_W8;
+         else if (vl==4)
+            vzero = VDZERO_W4;
+         else if (vl==2)
+            vzero = VDZERO_W2;
+         else
+            fko_error(__LINE__, "Unknown vlen!!");
       }
       for (; sl; sl=sl->next)
       {
@@ -1667,8 +1897,8 @@ void DoVecInit(short vid, struct slist *elem)
          InsNewInst(NULL, NULL, NULL, vzero, -reg, -reg, 0);
       }
       else 
-         reg = Scalar2VRegLoad(svar);       
-      LocalStore(vid, reg);
+         reg = Scalar2VRegLoad(svar, vl);       
+      LocalStore(vid, reg, vl);
       GetReg(-1);
    }
    else
@@ -1681,18 +1911,38 @@ void DoVecInit(short vid, struct slist *elem)
  */
       vtp = FLAG2TYPE(STflag[vid-1]);
       if (vtp == T_VFLOAT)
-         vshuf = VFSHUF;
+      {
+         /*vshuf = VFSHUF;*/
+         if (vl==16)
+            vshuf = VFSHUF_W16;
+         else if (vl==8)
+            vshuf = VFSHUF_W8;
+         else if (vl==4)
+            vshuf = VFSHUF_W4;
+         else
+            fko_error(__LINE__, "Unsupported vlen!!");
+      }
       else
-         vshuf = VDSHUF;
+      {
+         /*vshuf = VDSHUF;*/
+         if (vl==8)
+            vshuf = VDSHUF_W8;
+         else if (vl==4)
+            vshuf = VDSHUF_W4;
+         else if (vl==2)
+            vshuf = VDSHUF_W2;
+         else
+            fko_error(__LINE__, "Unknown vlen!!");
+      }
 
       k = STiconstlookup(0);
-      reg = Scalar2VRegLoad(svar); 
+      reg = Scalar2VRegLoad(svar, vl); 
       InsNewInst(NULL, NULL, NULL, vshuf, -reg, -reg, k);
-      LocalStore(vid, reg);
+      LocalStore(vid, reg, vl);
    }
 }
 
-void DoReduce(short sid, short vid, char op, short iconst)
+void DoReduce(short sid, short vid, char op, short iconst, short vl)
 {
    int i, k;
    int flag, ne, lgne;
@@ -1700,26 +1950,78 @@ void DoReduce(short sid, short vid, char op, short iconst)
    short r0, r1;
    enum inst vinst, vadd, vmax, vmin, vsst, vld, vshuf;
 /*
- * select based on type
+ * NOTE: use user defined vlen instead of from arch  
  */
    flag = STflag[vid-1];
+   #if 0
+      ne = vtype2elem(FLAG2TYPE(flag));
+   #else
+      ne = vl;
+   #endif
+/*
+ * select based on type
+ */
    if (IS_VFLOAT(flag))
    {
-      vadd = VFADD;
-      vmax = VFMAX;
-      vmin = VFMIN;
-      vsst = VFSTS;
-      vld = VFLD;
-      vshuf = VFSHUF;
+      if (vl==16)
+      {
+         vadd = VFADD_W16;
+         vmax = VFMAX_W16;
+         vmin = VFMIN_W16;
+         vsst = VFSTS_W16;
+         vld = VFLD_W16;
+         vshuf = VFSHUF_W16;
+      }
+      else if (vl==8)
+      {
+         vadd = VFADD_W8;
+         vmax = VFMAX_W8;
+         vmin = VFMIN_W8;
+         vsst = VFSTS_W8;
+         vld = VFLD_W8;
+         vshuf = VFSHUF_W8;
+      }
+      else if (vl==4)
+      {
+         vadd = VFADD_W4;
+         vmax = VFMAX_W4;
+         vmin = VFMIN_W4;
+         vsst = VFSTS_W4;
+         vld = VFLD_W4;
+         vshuf = VFSHUF_W4;
+      }
+      else
+         fko_error(__LINE__, "Unknown vlen!!");
    }
    else if (IS_VDOUBLE(flag))
    {
-      vadd = VDADD;
-      vmax = VDMAX;
-      vmin = VDMIN;
-      vsst = VDSTS;
-      vld = VDLD;
-      vshuf = VDSHUF;
+      if (vl==8)
+      {
+         vadd = VDADD_W8;
+         vmax = VDMAX_W8;
+         vmin = VDMIN_W8;
+         vsst = VDSTS_W8;
+         vld = VDLD_W8;
+         vshuf = VDSHUF_W8;
+      }
+      else if (vl==4)
+      {
+         vadd = VDADD_W4;
+         vmax = VDMAX_W4;
+         vmin = VDMIN_W4;
+         vsst = VDSTS_W4;
+         vld = VDLD_W4;
+         vshuf = VDSHUF_W4;
+      }
+      else if (vl==2)
+      {
+         vadd = VDADD_W2;
+         vmax = VDMAX_W2;
+         vmin = VDMIN_W2;
+         vsst = VDSTS_W2;
+         vld = VDLD_W2;
+         vshuf = VDSHUF_W2;
+      }
    }
    else
       fko_error(__LINE__, "unknown vector type for HIL!");
@@ -1741,7 +2043,9 @@ void DoReduce(short sid, short vid, char op, short iconst)
  *                       0xXXXXXXX9 (or, 0x76543219)
  *       
  */
-   ne = vtype2elem(FLAG2TYPE(flag));
+/*
+ * get log(ne)
+ */
    for (i=(ne>>1), lgne=0; i; i=i>>1) lgne++;
    
    if (op != 'S')
@@ -1767,7 +2071,7 @@ void DoReduce(short sid, short vid, char op, short iconst)
             break;
          default:
             fko_error(__LINE__, 
-                  "more than eight elements in vector!!!");
+                  "more than eight elements in vector not supported yet !!!");
       }
 /*
  *    select instruction for operation

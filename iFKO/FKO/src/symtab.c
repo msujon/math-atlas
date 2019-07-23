@@ -1418,22 +1418,22 @@ short NewLDAS(short lda, short ptr, int mul)
 /*
  *    add instrucitons to calc ldas = lda * sizeof
  */
-      DoArith(ldas, lda, '<', sz);
+      DoArith(ldas, lda, '<', sz, 1);
    }
    else if (mul == -1)
    {
       sprintf(ln, "_n_%s_s", STname[lda-1]); 
       ldas = InsertNewLocal(ln, STflag[lda-1]);
       sz = STiconstlookup(type2shift(FLAG2TYPE(STflag[ptr-1])));
-      DoArith(ldas, lda, '<', sz);
-      DoArith(ldas, ldas, 'n', 0);
+      DoArith(ldas, lda, '<', sz, 1);
+      DoArith(ldas, ldas, 'n', 0, 1);
    }
    else if (mul == 3)
    {
       sprintf(ln, "_3_%s_s", STname[lda-1]); 
       ldas = InsertNewLocal(ln, STflag[lda-1]);
       sz = STiconstlookup(type2len(FLAG2TYPE(STflag[ptr-1]))*mul);
-      DoArith(ldas, lda, '*', sz);
+      DoArith(ldas, lda, '*', sz, 1);
    }
    else
       fko_error(__LINE__, "unknown mul, not implemented yet! ");
@@ -1543,7 +1543,7 @@ short *CreateAllColPtrs(short base, short lda, int unroll)
       sprintf(ln, "_%s_%d", STname[base-1], i);
       colptrs[i+1] = InsertNewLocalPtr(ln, FLAG2TYPE(STflag[base-1]));
       if (!i)
-         DoMove(colptrs[i+1], base); 
+         DoMove(colptrs[i+1], base, 1); 
       else
          HandlePtrArithNoSizeofUpate(colptrs[i+1], colptrs[i], '+', lda); 
    }
@@ -1572,7 +1572,7 @@ short *CreateOptColPtrs(short base, short lda, short unroll)
          colptrs[0] = np;
          sprintf(ln, "_%s_0", STname[base-1]);
          colptrs[1] = InsertNewLocalPtr(ln, FLAG2TYPE(STflag[base-1]));
-         DoMove(colptrs[1], base); 
+         DoMove(colptrs[1], base, 1); 
          break;
       case 3:
       case 4:
@@ -1590,7 +1590,7 @@ short *CreateOptColPtrs(short base, short lda, short unroll)
  */
          sprintf(ln, "_tm%s_2", STname[lda-1]);
          tmlda = InsertNewLocal(ln, FLAG2TYPE(STflag[lda-1]));
-         DoArith(tmlda, lda, '<', STiconstlookup(1));
+         DoArith(tmlda, lda, '<', STiconstlookup(1), 1);
          HandlePtrArithNoSizeofUpate(colptrs[1], base, '+', tmlda); 
          break;
       case 8:
@@ -1614,10 +1614,10 @@ short *CreateOptColPtrs(short base, short lda, short unroll)
          sprintf(ln, "_tm%s_2_7", STname[lda-1]);
          tmlda = InsertNewLocal(ln, FLAG2TYPE(STflag[lda-1]));
 
-         DoArith(tmlda, lda, '<', STiconstlookup(1));
+         DoArith(tmlda, lda, '<', STiconstlookup(1), 1);
          HandlePtrArithNoSizeofUpate(colptrs[1], base, '+', tmlda); 
 
-         DoArith(tmlda, lda, '*', STiconstlookup(7));
+         DoArith(tmlda, lda, '*', STiconstlookup(7), 1);
          HandlePtrArithNoSizeofUpate(colptrs[2], base, '+', tmlda); 
          break;
       case 13:
@@ -1638,10 +1638,10 @@ short *CreateOptColPtrs(short base, short lda, short unroll)
          sprintf(ln, "_tm%s_2_9", STname[lda-1]);
          tmlda = InsertNewLocal(ln, FLAG2TYPE(STflag[lda-1]));
 
-         DoArith(tmlda, lda, '<', STiconstlookup(1));
+         DoArith(tmlda, lda, '<', STiconstlookup(1), 1);
          HandlePtrArithNoSizeofUpate(colptrs[1], base, '+', tmlda); 
 
-         DoArith(tmlda, lda, '*', STiconstlookup(9));
+         DoArith(tmlda, lda, '*', STiconstlookup(9), 1);
          HandlePtrArithNoSizeofUpate(colptrs[2], base, '+', tmlda); 
          break;
 
@@ -1666,13 +1666,13 @@ short *CreateOptColPtrs(short base, short lda, short unroll)
          sprintf(ln, "_tm%s_2_7_12", STname[lda-1]);
          tmlda = InsertNewLocal(ln, FLAG2TYPE(STflag[lda-1]));
 
-         DoArith(tmlda, lda, '<', STiconstlookup(1));
+         DoArith(tmlda, lda, '<', STiconstlookup(1), 1);
          HandlePtrArithNoSizeofUpate(colptrs[1], base, '+', tmlda); 
 
-         DoArith(tmlda, lda, '*', STiconstlookup(7));
+         DoArith(tmlda, lda, '*', STiconstlookup(7), 1);
          HandlePtrArithNoSizeofUpate(colptrs[2], base, '+', tmlda); 
          
-         DoArith(tmlda, lda, '*', STiconstlookup(12));
+         DoArith(tmlda, lda, '*', STiconstlookup(12), 1);
          HandlePtrArithNoSizeofUpate(colptrs[3], base, '+', tmlda); 
          break;
       default:

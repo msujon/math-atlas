@@ -1343,7 +1343,7 @@ char *instmnem[] =
                       (i_) == VDLDU || (i_) == VLDU  || \
                       (i_) == VFLDSB || (i_) == VDLDSB )
 #endif
-#define IS_LOAD(i_)  ((i_) == LD || (i_) == FLD || (i_) == FLDD || (i_) == LDS \
+#define IS_LOAD(i_)  ((i_) == LD || (i_) == FLD || (i_) == FLDD || (i_) == LDS || \
                (i_) == VFLD_W16  || (i_) ==  VFLD_W8  || (i_) == VFLD_W4 || \
                (i_) == VDLD_W8   || (i_) ==  VDLD_W4  || (i_) == VDLD_W2 || \
                (i_) == VFLDS_W16 || (i_) ==  VFLDS_W8 || (i_) == VFLDS_W4 || \
@@ -1648,6 +1648,14 @@ char *instmnem[] =
 /*#define IS_MOVS(i_) ( (i_) == VDMOVS || (i_) == VFMOVS )*/
 
 #define IS_PREF(i_) ( (i_) == PREFR || (i_) == PREFW )
+
+#define IS_VABS(i_) ( (i_) == VFABS_W16 || (i_) == VFABS_W8 || \
+      (i_) == VFABS_W4 || (i_) == VDABS_W8 || (i_) == VDABS_W4 || \
+      (i_) == VDABS_W2 )
+
+#define IS_VNEG(i_) ( (i_) == VFNEG_W16 || (i_) == VFNEG_W8 || \
+      (i_) == VFNEG_W4 || (i_) == VDNEG_W8 || (i_) == VDNEG_W4 || \
+      (i_) == VDNEG_W2 )
 
 
 INSTQ *NewInst(BBLOCK *myblk, INSTQ *prev, INSTQ *next, enum inst ins,

@@ -69,7 +69,7 @@ short type2shift(int type)
 #ifdef X86
 short vtype2elem(int type)
 /*
- * returns element count in vector depending on the vector type
+ * returns element count in vector depending on the vector type, else 1
  */
 {
    short nelem;
@@ -90,7 +90,7 @@ short vtype2elem(int type)
          nelem = 4;
       #endif
    else
-      fko_error(__LINE__, "Must be a vector type!");
+      nelem = 1;
    return nelem;
 }
 
@@ -121,13 +121,15 @@ int RevealArchMemUses(void)
    INSTQ *ip, *ipN;
    enum inst inst;
    /*short op, ir;*/
-   short op3, vr, ir;
+   short op3, vr, ir, sne, dne;
    int nchanges;
    extern int DTabs, DTabsd, DTnzero, DTnzerod;
    /*extern int DTabss, DTabsds, DTnzeros, DTnzerods;*/
    extern BBLOCK *bbbase;
-
+   
    nchanges = 0;
+   sne = vtype2elem(T_VFLOAT);
+   dne = vtype2elem(T_VDOUBLE);
    for (bp=bbbase; bp; bp=bp->down)
    {
       for (ip=bp->ainst1; ip; ip = ip->next)
@@ -138,8 +140,7 @@ int RevealArchMemUses(void)
  *       following instructions into compatible x86 inst.
  */
          if (inst == FABS || inst == FABSD || inst == FNEG || inst == FNEGD 
-             || inst == VFABS || inst == VDABS || inst == VFNEG 
-             || inst == VDNEG)
+             || IS_VABS(inst) || IS_VNEG(inst) )
          {
             j = ireg2type(-ip->inst[1]);
             ir = GetReg(j);
@@ -149,15 +150,35 @@ int RevealArchMemUses(void)
             }
          }
          else continue;
-         
+/*
+ *       NOTE: We have updated the Vector insts with their width. For following
+ *       special inst, we will consider/use max width supported on the arch. 
+ *       VFREG or VDREG without specifying the width will always indicate the\
+ *       largest width supported on any arch 
+ */
          /*if (ip->inst[3] >= 0)*/
          switch(inst)
          {
             case FABS:
                op3 = SToff[DTabs-1].sa[2];
                vr = ir - FREGBEG + VFREGBEG;
-               ipN = InsNewInst(NULL, NULL, ip, VFLD, -vr, op3, 0);
-               ip->inst[0] = VFSABS;
+               if (sne == 16)
+               {
+                  ipN = InsNewInst(NULL, NULL, ip, VFLD_W16, -vr, op3, 0);
+                  ip->inst[0] = VFSABS_W16;
+               }
+               else if (sne == 8)
+               {
+                  ipN = InsNewInst(NULL, NULL, ip, VFLD_W8, -vr, op3, 0);
+                  ip->inst[0] = VFSABS_W8;
+               }
+               else if (sne == 4)
+               {
+                  ipN = InsNewInst(NULL, NULL, ip, VFLD_W4, -vr, op3, 0);
+                  ip->inst[0] = VFSABS_W4;
+               }
+               else
+                  fko_error(__LINE__, "unknown vlen = %d\n", sne);
                ip->inst[3] = -vr;
                GetReg(-1);
                CalcThisUseSet(ipN);
@@ -167,8 +188,23 @@ int RevealArchMemUses(void)
             case FABSD:
                op3 = SToff[DTabsd-1].sa[2];
                vr = ir - DREGBEG + VDREGBEG;
-               ipN = InsNewInst(NULL, NULL, ip, VDLD, -vr, op3, 0);
-               ip->inst[0] = VDSABS;
+               if (dne == 8)
+               {
+                  ipN = InsNewInst(NULL, NULL, ip, VDLD_W8, -vr, op3, 0);
+                  ip->inst[0] = VDSABS_W8;
+               }
+               if (dne == 4)
+               {
+                  ipN = InsNewInst(NULL, NULL, ip, VDLD_W4, -vr, op3, 0);
+                  ip->inst[0] = VDSABS_W4;
+               }
+               if (dne == 2)
+               {
+                  ipN = InsNewInst(NULL, NULL, ip, VDLD_W2, -vr, op3, 0);
+                  ip->inst[0] = VDSABS_W2;
+               }
+               else
+                  fko_error(__LINE__, "unknown vlen = %d\n", sne);
                ip->inst[3] = -vr;
                GetReg(-1);
                CalcThisUseSet(ipN);
@@ -178,8 +214,23 @@ int RevealArchMemUses(void)
             case FNEG:
                op3 = SToff[DTnzero-1].sa[2];
                vr = ir - FREGBEG + VFREGBEG;
-               ipN = InsNewInst(NULL, NULL, ip, VFLD, -vr, op3, 0);
-               ip->inst[0] = VFSNEG;
+               if (sne == 16)
+               {
+                  ipN = InsNewInst(NULL, NULL, ip, VFLD_W16, -vr, op3, 0);
+                  ip->inst[0] = VFSNEG_W16;
+               }
+               else if (sne == 8)
+               {
+                  ipN = InsNewInst(NULL, NULL, ip, VFLD_W8, -vr, op3, 0);
+                  ip->inst[0] = VFSNEG_W8;
+               }
+               else if (sne == 4)
+               {
+                  ipN = InsNewInst(NULL, NULL, ip, VFLD_W4, -vr, op3, 0);
+                  ip->inst[0] = VFSNEG_W4;
+               }
+               else
+                  fko_error(__LINE__, "unknown vlen = %d\n", sne);
                ip->inst[3] = -vr;
                GetReg(-1);
                CalcThisUseSet(ipN);
@@ -189,49 +240,146 @@ int RevealArchMemUses(void)
             case FNEGD:
                op3 = SToff[DTnzerod-1].sa[2];
                vr = ir - DREGBEG + VDREGBEG;
-               ipN = InsNewInst(NULL, NULL, ip, VDLD, -vr, op3, 0);
-               ip->inst[0] = VDSNEG;
+               if (dne == 8)
+               {
+                  ipN = InsNewInst(NULL, NULL, ip, VDLD_W8, -vr, op3, 0);
+                  ip->inst[0] = VDSNEG_W8;
+               }
+               if (dne == 4)
+               {
+                  ipN = InsNewInst(NULL, NULL, ip, VDLD_W4, -vr, op3, 0);
+                  ip->inst[0] = VDSNEG_W4;
+               }
+               if (dne == 2)
+               {
+                  ipN = InsNewInst(NULL, NULL, ip, VDLD_W2, -vr, op3, 0);
+                  ip->inst[0] = VDSNEG_W2;
+               }
+               else
+                  fko_error(__LINE__, "unknown vlen = %d\n", sne);
                ip->inst[3] = -vr;
                GetReg(-1);
                CalcThisUseSet(ipN);
                CalcThisUseSet(ip);
                nchanges++;
                break;
-            case VFABS:
+            case VFABS_W16:
                op3 = SToff[DTabs-1].sa[2];
                j = T_VFLOAT;
                vr = ir;
-               ipN = InsNewInst(NULL, NULL, ip, VFLD, -vr, op3, 0);
+               ipN = InsNewInst(NULL, NULL, ip, VFLD_W16, -vr, op3, 0);
                ip->inst[3] = -vr;
                GetReg(-1);
                CalcThisUseSet(ipN);
                CalcThisUseSet(ip);
                nchanges++;
                   break;
-            case VDABS:
+            case VFABS_W8:
+               op3 = SToff[DTabs-1].sa[2];
+               j = T_VFLOAT;
+               vr = ir;
+               ipN = InsNewInst(NULL, NULL, ip, VFLD_W8, -vr, op3, 0);
+               ip->inst[3] = -vr;
+               GetReg(-1);
+               CalcThisUseSet(ipN);
+               CalcThisUseSet(ip);
+               nchanges++;
+                  break;
+            case VFABS_W4:
+               op3 = SToff[DTabs-1].sa[2];
+               j = T_VFLOAT;
+               vr = ir;
+               ipN = InsNewInst(NULL, NULL, ip, VFLD_W4, -vr, op3, 0);
+               ip->inst[3] = -vr;
+               GetReg(-1);
+               CalcThisUseSet(ipN);
+               CalcThisUseSet(ip);
+               nchanges++;
+                  break;
+            case VDABS_W8:
                op3 = SToff[DTabsd-1].sa[2];
                vr = ir;
-               ipN = InsNewInst(NULL, NULL, ip, VDLD, -vr, op3, 0);
+               ipN = InsNewInst(NULL, NULL, ip, VDLD_W8, -vr, op3, 0);
                ip->inst[3] = -vr;
                GetReg(-1);
                CalcThisUseSet(ipN);
                CalcThisUseSet(ip);
                nchanges++;
                break;
-            case VFNEG:
+            case VDABS_W4:
+               op3 = SToff[DTabsd-1].sa[2];
+               vr = ir;
+               ipN = InsNewInst(NULL, NULL, ip, VDLD_W4, -vr, op3, 0);
+               ip->inst[3] = -vr;
+               GetReg(-1);
+               CalcThisUseSet(ipN);
+               CalcThisUseSet(ip);
+               nchanges++;
+               break;
+            case VDABS_W2:
+               op3 = SToff[DTabsd-1].sa[2];
+               vr = ir;
+               ipN = InsNewInst(NULL, NULL, ip, VDLD_W2, -vr, op3, 0);
+               ip->inst[3] = -vr;
+               GetReg(-1);
+               CalcThisUseSet(ipN);
+               CalcThisUseSet(ip);
+               nchanges++;
+               break;
+            case VFNEG_W16:
                op3 = SToff[DTnzero-1].sa[2];
                vr = ir;
-               ipN = InsNewInst(NULL, NULL, ip, VFLD, -vr, op3, 0);
+               ipN = InsNewInst(NULL, NULL, ip, VFLD_W16, -vr, op3, 0);
                ip->inst[3] = -vr;
                GetReg(-1);
                CalcThisUseSet(ipN);
                CalcThisUseSet(ip);
                nchanges++;
                break;
-            case VDNEG:
+            case VFNEG_W8:
+               op3 = SToff[DTnzero-1].sa[2];
+               vr = ir;
+               ipN = InsNewInst(NULL, NULL, ip, VFLD_W8, -vr, op3, 0);
+               ip->inst[3] = -vr;
+               GetReg(-1);
+               CalcThisUseSet(ipN);
+               CalcThisUseSet(ip);
+               nchanges++;
+               break;
+            case VFNEG_W4:
+               op3 = SToff[DTnzero-1].sa[2];
+               vr = ir;
+               ipN = InsNewInst(NULL, NULL, ip, VFLD_W4, -vr, op3, 0);
+               ip->inst[3] = -vr;
+               GetReg(-1);
+               CalcThisUseSet(ipN);
+               CalcThisUseSet(ip);
+               nchanges++;
+               break;
+            case VDNEG_W8:
                op3 = SToff[DTnzerod-1].sa[2];
                vr = ir;
-               ipN = InsNewInst(NULL, NULL, ip, VDLD, -vr, op3, 0);
+               ipN = InsNewInst(NULL, NULL, ip, VDLD_W8, -vr, op3, 0);
+               ip->inst[3] = -vr;
+               GetReg(-1);
+               CalcThisUseSet(ipN);
+               CalcThisUseSet(ip);
+               nchanges++;
+               break;  
+            case VDNEG_W4:
+               op3 = SToff[DTnzerod-1].sa[2];
+               vr = ir;
+               ipN = InsNewInst(NULL, NULL, ip, VDLD_W4, -vr, op3, 0);
+               ip->inst[3] = -vr;
+               GetReg(-1);
+               CalcThisUseSet(ipN);
+               CalcThisUseSet(ip);
+               nchanges++;
+               break;  
+            case VDNEG_W2:
+               op3 = SToff[DTnzerod-1].sa[2];
+               vr = ir;
+               ipN = InsNewInst(NULL, NULL, ip, VDLD_W2, -vr, op3, 0);
                ip->inst[3] = -vr;
                GetReg(-1);
                CalcThisUseSet(ipN);
@@ -716,7 +864,7 @@ void bitload(INSTQ *next, int reg, int nbits, int I)
    InsNewInst(NULL, NULL, next, VGR2VR16, -fr, -ir, STiconstlookup(0));
    InsNewInst(NULL, NULL, next, SHR, -ir, -ir, STiconstlookup(16));
    InsNewInst(NULL, NULL, next, VGR2VR16, -fr, -ir, STiconstlookup(1));
-   InsNewInst(NULL, NULL, next, VFSHUF, -fr, -fr, STiconstlookup(0));
+   InsNewInst(NULL, NULL, next, VFSHUF_W4, -fr, -fr, STiconstlookup(0));
 }
 
 /*
@@ -744,7 +892,7 @@ void VDConstGen(INSTQ *next, int ir, int fr, long icon0, long icon1)
    InsNewInst(NULL, NULL, next, VGR2VR16, -fr, -ir, STiconstlookup(2));
    InsNewInst(NULL, NULL, next, SHR, -ir, -ir, STiconstlookup(16));
    InsNewInst(NULL, NULL, next, VGR2VR16, -fr, -ir, STiconstlookup(3));
-   InsNewInst(NULL, NULL, next, VDSHUF, -fr, -fr, STiconstlookup(0));
+   InsNewInst(NULL, NULL, next, VDSHUF_W2, -fr, -fr, STiconstlookup(0));
 }
 #endif
 void SignalSet(INSTQ *next, 
@@ -1001,13 +1149,38 @@ void Extern2Local(INSTQ *next, int rsav)
       char fnam[8];
       int fc, fr=0;
    #endif
-
+   #ifdef X86
+      short sne, dne, vfld, vdld, vfst, vdst; 
+   #endif
    assert(!ParaDerefQ);
    dreg = GetReg(T_DOUBLE);
    freg = GetReg(T_FLOAT);
+/*
+ * NOTE: since we extend the support of vinst to variable width, we need to
+ * select specific width of vinst here for vld/vst. We are selecting max width
+ * supported by the system
+ */
    #ifdef X86
       vfreg = GetReg(T_VFLOAT);
       vdreg = GetReg(T_VDOUBLE);
+      sne = vtype2elem(T_VFLOAT); 
+      if (sne == 16) 
+         vfst = VFST_W16; 
+      else if (sne == 8)
+         vfst = VFST_W8; 
+      else if (sne == 4)
+         vfst = VFST_W4; 
+      else
+         fko_error(__LINE__, "unknow vector width = %d\n", sne);
+      dne = vtype2elem(T_VDOUBLE); 
+      if (dne == 8)
+         vdst = VDST_W8; 
+      else if (dne == 4)
+         vdst = VDST_W4; 
+      else if (dne == 2)
+         vdst = VDST_W2; 
+      else
+         fko_error(__LINE__, "unknow vector width = %d\n", sne);
    #endif
    if (NPARA)
    {
@@ -1074,8 +1247,16 @@ void Extern2Local(INSTQ *next, int rsav)
  *    NOTE: must be a register with short version in X64
  */
       assert(reg1 <= NSR);
-            
-      #ifdef AVX   
+/*
+ *    updated for AVX-512
+ */
+      #if defined(AVX512)
+         fnam[0] = '@';
+         fnam[1] = 'z';
+         fnam[2] = 'm';
+         fnam[3] = 'm';
+         fnam[5] = '\0';
+      #elif defined(AVX)
          fnam[0] = '@';
          fnam[1] = 'y';
          fnam[2] = 'm';
@@ -1220,25 +1401,25 @@ void Extern2Local(INSTQ *next, int rsav)
       {
          PrintComment(NULL, NULL, next, "Writing -0 as a vector for negation");
          VDConstGen(next, ir, vdreg, 0x8000000000000000);
-         InsNewInst(NULL, NULL, next, VDST, SToff[DTnzerod-1].sa[2], -vdreg, 0);
+         InsNewInst(NULL, NULL, next, vdst, SToff[DTnzerod-1].sa[2], -vdreg, 0);
       }
       if (DTnzero > 0)
       {
          PrintComment(NULL, NULL, next, "Writing -0 for negation");
          VSConstGen(next, ir, vfreg, 0x80000000);
-         InsNewInst(NULL, NULL, next, VFST, SToff[DTnzero-1].sa[2], -vfreg, 0);
+         InsNewInst(NULL, NULL, next, vfst, SToff[DTnzero-1].sa[2], -vfreg, 0);
       }
       if (DTabsd)
       {
          PrintComment(NULL, NULL, next, "Writing ~(-0) as a vector for absd");
          VDConstGen(next, ir, vdreg, 0x7FFFFFFFFFFFFFFF);
-         InsNewInst(NULL, NULL, next, VDST, SToff[DTabsd-1].sa[2], -vdreg, 0);
+         InsNewInst(NULL, NULL, next, vdst, SToff[DTabsd-1].sa[2], -vdreg, 0);
       }
       if (DTabs)
       {
          PrintComment(NULL, NULL, next, "Writing ~(-0) for abss");
          VSConstGen(next, ir, vfreg, 0x7fffffff);
-         InsNewInst(NULL, NULL, next, VFST, SToff[DTabs-1].sa[2], -vfreg, 0);
+         InsNewInst(NULL, NULL, next, vfst, SToff[DTabs-1].sa[2], -vfreg, 0);
       }
       InsNewInst(NULL, NULL, next, COMMENT, STstrconstlookup("done archspec"), 
                  0, 0);
@@ -1301,25 +1482,25 @@ void Extern2Local(INSTQ *next, int rsav)
       {
          PrintComment(NULL, NULL, next, "Writing -0 as a vector for negation");
          VDConstGen(next, ir, vdreg, 0x0, 0x80000000);
-         InsNewInst(NULL, NULL, next, VDST, SToff[DTnzerod-1].sa[2], -vdreg, 0);
+         InsNewInst(NULL, NULL, next, vdst, SToff[DTnzerod-1].sa[2], -vdreg, 0);
       }
       if (DTnzero > 0)
       {
          PrintComment(NULL, NULL, next, "Writing -0 to memory for negation");
          VSConstGen(next, ir, vfreg, 0x80000000);
-         InsNewInst(NULL, NULL, next, VFST, SToff[DTnzero-1].sa[2], -vfreg, 0);
+         InsNewInst(NULL, NULL, next, vfst, SToff[DTnzero-1].sa[2], -vfreg, 0);
       }
       if (DTabsd)
       {
          PrintComment(NULL, NULL, next, "Writing ~(-0) as a vector for absd");
          VDConstGen(next, ir, vdreg, 0xffffffff, 0x7fffffff);
-         InsNewInst(NULL, NULL, next, VDST, SToff[DTabsd-1].sa[2], -vdreg, 0);
+         InsNewInst(NULL, NULL, next, vdst, SToff[DTabsd-1].sa[2], -vdreg, 0);
       }
       if (DTabs)
       {
          PrintComment(NULL, NULL, next, "Writing ~(-0) as a vector for abss");
          VSConstGen(next, ir, vfreg, 0x7fffffff);
-         InsNewInst(NULL, NULL, next, VFST, SToff[DTabs-1].sa[2], -vfreg, 0);
+         InsNewInst(NULL, NULL, next, vfst, SToff[DTabs-1].sa[2], -vfreg, 0);
       }
       InsNewInst(NULL, NULL, next, COMMENT, STstrconstlookup("done archspec"), 
             0, 0);

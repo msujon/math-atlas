@@ -65,6 +65,9 @@
    void HandleVecBroadcast(short vid, short ptrderef);
    void HandlePrefetch(short lvl, short ptrderef, int wpf);
    short HandleVecElem(short vid, int elem);
+   void HandleArrayStore(short ptr, short id);
+   void HandleArrayLoad(short id, short ptr);
+   void HandleIf(char op, short id, short avar, char *labnam);
 %}
 %union
 {
@@ -287,8 +290,8 @@ statements : statements statement
            ;
 statement : arith ';'
           | comment
-          | ptrderef '=' ID ';'   {DoArrayStore($1, $3);}
-          | ID '=' ptrderef ';'   {DoArrayLoad($1, $3);}
+          | ptrderef '=' ID ';'   {HandleArrayStore($1, $3);}
+          | ID '=' ptrderef ';'   {HandleArrayLoad($1, $3);}
           /*| ID '=' ID       ';'   {DoMove($1, $3);}
 	  | ID '=' const ';'	  {DoMove($1, $3);}*/
           | ID '=' ID ';'         {HandleMove($1, $3);}
@@ -418,7 +421,7 @@ IFOP : '>'  {$$ = '>';}
      | '^'    {$$ = '^';}
      ;
    
-ifstate : IF '(' ID IFOP avar ')' GOTO NAME         {DoIf($4, $3, $5, $8);} 
+ifstate : IF '(' ID IFOP avar ')' GOTO NAME         {HandleIf($4, $3, $5, $8);} 
         ;
 arith : ID '=' ID '+' avar {HandleArith($1, $3, '+', $5); }
       | ID '=' ID '*' avar {HandleArith($1, $3, '*', $5); }
@@ -531,14 +534,23 @@ struct idlist *ReverseList(struct idlist *base0)
 #endif
 void HandleArith(short dest, short src0, char op, short src1)
 {
+   short vl;
 /*
  * check whether vector intrinsic is applied!
  */ 
    if (IS_VEC(STflag[dest-1]) || IS_VEC(STflag[src0-1]) || 
        (src1 && IS_VEC(STflag[src1-1])))
        VecIntr = 1;
+      
+   if (IS_VEC(STflag[dest-1]))
+      vl = vtype2elem(STflag[dest-1]); 
+   else if (IS_VEC(STflag[src0-1]))
+      vl = vtype2elem(STflag[src0-1]); 
+   else if (IS_VEC(STflag[src1-1]))
+      vl = vtype2elem(STflag[src1-1]); 
+   else vl = 1; 
 
-   DoArith(dest, src0, op, src1); 
+   DoArith(dest, src0, op, src1, vl); 
 }
 
 void HandleMove(short dest, short src)
@@ -547,6 +559,7 @@ void HandleMove(short dest, short src)
  * for Array 
  */
 {
+   short vl;
    if (IS_ARRAY(STflag[dest-1]) || IS_ARRAY(STflag[src-1]))
       fko_error(__LINE__, "Array assignment not yet supoorted in HIL!");
    else
@@ -554,10 +567,19 @@ void HandleMove(short dest, short src)
 /*
  *    check for vector move before calling DoMove
  */
-      if (IS_VEC(STflag[dest-1]) || IS_VEC(STflag[src-1])) 
+      if (IS_VEC(STflag[dest-1]) || IS_VEC(STflag[src-1]))
          VecIntr = 1;
+/*
+ *    NOTE: for now, just check the vlen of system, we will extend it for 
+ *    arbitary vlen. Need to propagate vlen info from the var or id
+ */
+      if (IS_VEC(STflag[src-1]))
+         vl = vtype2elem(STflag[src-1]); 
+      else if (IS_VEC(STflag[dest-1]))
+         vl = vtype2elem(STflag[dest-1]); 
+      else vl = 1; 
 
-      DoMove(dest,src);
+      DoMove(dest,src,vl);
    }
 }
 
@@ -668,7 +690,25 @@ short HandleArrayAccess(short ptr, short dim)
 
    return rt;
 }
+void HandleArrayStore(short ptr, short id)
+{
+/*
+ * NOTE: will get vlen from id later 
+ */
+   DoArrayStore(ptr, id, vtype2elem(FLAG2TYPE(STflag[id-1])));
 
+}
+void HandleArrayLoad(short id, short ptr)
+{
+/*
+ * NOTE: will get vlen from id later 
+ */
+   DoArrayStore(id, ptr, vtype2elem(FLAG2TYPE(STflag[id-1])));
+}
+void HanldeIf(char op, short id, short avar, char *labnam)
+{
+   DoIf(op, id, avar, labnam, vtype2elem(FLAG2TYPE(STflag[id-1])));
+}
 void HandleUnrollFactor(short ptr, int ndim)
 {
    int i;
@@ -1126,7 +1166,7 @@ void declare_vector(int flag, int vlen)
  */
 /*
  * NOTE: right now, we only support vector code where veclen is directly match 
- * with the vlen of the system. We will relax this restriction later!!! 
+ * with the vlen of the system. We will relax this restriction later!!!
  */
    vlen = SToff[vlen-1].i;
    vl = vtype2elem(flag);
@@ -1205,9 +1245,10 @@ void HandleVecInit(short vid)
       yyerror("elem count mismatch with vector type");
 /*
  * add LIL for this statement
+ * NOTE: need to propagate vlen from id 
  */
 
-   DoVecInit(vid, shead); 
+   DoVecInit(vid, shead, vtype2elem(vtp)); 
 
 #if 0
    fprintf(stderr, "%s : %d\n", STname[vid-1], vtp);
@@ -1247,7 +1288,8 @@ void HandleVecReduce(short sid, short vid, char op, short ic)
          yyerror("incorrect position param for VHSEL operation!");
    }
 
-   DoReduce(sid, vid, op, ic);
+   /* NOTE: need to propagate vlen from id */
+   DoReduce(sid, vid, op, ic, vtype2elem(vtp));
 }
 
 void HandleVecBroadcast(short vid, short ptrderef)
@@ -1261,7 +1303,8 @@ void HandleVecBroadcast(short vid, short ptrderef)
        /*yyerror("type mismatch!");*/
        fko_error(__LINE__,"type mismatch[%d,%d] !", vtype, ptype);
    
-   DoArrayBroadcast(vid, ptrderef);
+   /* NOTE: need to propagate vlen from id */
+   DoArrayBroadcast(vid, ptrderef, vtype2elem(vtype));
 }
 
 #if 0
