@@ -1363,8 +1363,13 @@ char *instmnem[] =
                (i_) == VFLDSB_W16 || (i_) ==  VFLDSB_W8 || (i_) == VFLDSB_W4 || \
                (i_) == VDLDSB_W8  || (i_) ==  VDLDSB_W4 || (i_) == VDLDSB_W2 )
 
-#define IS_UNALIGNED_VLOAD(i_) ((i_) == VFLDU || (i_) == VDLDU || \
-                               (i_) == VLDU )
+/*#define IS_UNALIGNED_VLOAD(i_) ((i_) == VFLDU || (i_) == VDLDU || \
+                               (i_) == VLDU )*/
+#define IS_UNALIGNED_VLOAD(i_) ((i_) == VFLDU_W16 || (i_) == VFLDU_W8 || \
+               (i_) == VFLDU_W4 || (i_) == VDLDU_W8 || (i_) == VDLDU_W4 || \
+               (i_) == VDLDU_W2 || (i_) == VSLDU_W16 || (i_) == VSLDU_W8 || \
+               (i_) == VSLDU_W4 || (i_) == VILDU_W8 || (i_) == VILDU_W4 || \
+               (i_) == VILDU_W2 )
 /*
  * Although VFLDSB/VDLDSB loads into vector register, they are essentially 
  * scalar load.
@@ -1597,10 +1602,11 @@ char *instmnem[] =
                                    /*|| IS_MOVS(i_) ) */
 #endif
 #define IS_DEST_INUSE_IMPLICITLY(i_) ((i_) == FMAC || (i_) == FMACD || \
-                                      (i_) == VFMAC || (i_) == VDMAC || \
                                       (i_) == FCMOV1 || (i_) == FCMOV2 || \
                                       (i_) == FCMOVD1 || (i_) == FCMOVD2 || \
                                       (i_) == CMOV1 || (i_) == CMOV2 || \
+            (i_) == VFMAC_W16 || (i_) == VFMAC_W8 || (i_) == VFMAC_W4 || \
+            (i_) == VDMAC_W8 || (i_) == VDMAC_W4 || (i_) == VDMAC_W2 || \
             (i_) == VFCMOV1_W16 || (i_) == VFCMOV1_W8 || (i_) == VFCMOV1_W4 || \
             (i_) == VFCMOV2_W16 || (i_) == VFCMOV2_W8 || (i_) == VFCMOV2_W4 || \
             (i_) == VDCMOV1_W8 || (i_) == VDCMOV1_W4 || (i_) == VDCMOV1_W2 || \
@@ -1657,6 +1663,13 @@ char *instmnem[] =
       (i_) == VFNEG_W4 || (i_) == VDNEG_W8 || (i_) == VDNEG_W4 || \
       (i_) == VDNEG_W2 )
 
+/* hybrid ABS/NEG */
+#define IS_VSABS(i_) ( (i_) == VFSABS_W16 || (i_) == VFSABS_W8 || \
+      (i_) == VFSABS_W4 || (i_) == VDSABS_W8 || (i_) == VDSABS_W4 || \
+      (i_) == VDSABS_W2 )
+#define IS_VSNEG(i_) ( (i_) == VFSNEG_W16 || (i_) == VFSNEG_W8 || \
+      (i_) == VFSNEG_W4 || (i_) == VDSNEG_W8 || (i_) == VDSNEG_W4 || \
+      (i_) == VDSNEG_W2 )
 
 INSTQ *NewInst(BBLOCK *myblk, INSTQ *prev, INSTQ *next, enum inst ins,
                short dest, short src1, short src2);

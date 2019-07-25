@@ -1724,40 +1724,119 @@ int VarUse2RegUse(IGNODE *ig, BBLOCK *blk, INSTQ *instbeg, INSTQ *instend)
          case FLDD:
             ip->inst[0] = FMOVD;
             break;
-         case VFLD:
-            ip->inst[0] = VFMOV;
+         case VFLD_W16:
+            ip->inst[0] = VFMOV_W16;
             break;
-         case VDLD:
-            ip->inst[0] = VDMOV;
+         case VFLD_W8:
+            ip->inst[0] = VFMOV_W8;
+            break;
+         case VFLD_W4:
+            ip->inst[0] = VFMOV_W4;
+            break;
+         case VDLD_W8:
+            ip->inst[0] = VDMOV_W8;
+            break;
+         case VDLD_W4:
+            ip->inst[0] = VDMOV_W4;
+            break;
+         case VDLD_W2:
+            ip->inst[0] = VDMOV_W2;
             break;
       #ifdef VIREGBEG
-         case VLD:
-            ip->inst[0] = VMOV;
+         case VSLD_W16:
+            ip->inst[0] = VSMOV_W16;
+            break;
+         case VSLD_W8:
+            ip->inst[0] = VSMOV_W8;
+            break;
+         case VSLD_W4:
+            ip->inst[0] = VSMOV_W4;
+            break;
+         case VILD_W8:
+            ip->inst[0] = VIMOV_W8;
+            break;
+         case VILD_W4:
+            ip->inst[0] = VIMOV_W4;
+            break;
+         case VILD_W2:
+            ip->inst[0] = VIMOV_W2;
             break;
       #endif
-         case VDLDS:
+         case VDLDS_W8:
             #ifdef X86
                k = ig->reg;
                if (k >= DREGBEG && k < DREGEND)
                   k = k - DREGBEG + VDREGBEG;
                if (k != -ip->inst[1])
-                  CalcThisUseSet(InsNewInst(NULL, NULL, ip, VDZERO, 
+                  CalcThisUseSet(InsNewInst(NULL, NULL, ip, VDZERO_W8, 
                                     ip->inst[1], 0, 0));
             #endif
-            ip->inst[0] = VDMOVS;
+            ip->inst[0] = VDMOVS_W8;
             ip->inst[2] = -ig->reg;
             ip->inst[3] = ip->inst[1]; /* made dest in use too */
             break;
-         case VFLDS:
+         case VDLDS_W4:
+            #ifdef X86
+               k = ig->reg;
+               if (k >= DREGBEG && k < DREGEND)
+                  k = k - DREGBEG + VDREGBEG;
+               if (k != -ip->inst[1])
+                  CalcThisUseSet(InsNewInst(NULL, NULL, ip, VDZERO_W4, 
+                                    ip->inst[1], 0, 0));
+            #endif
+            ip->inst[0] = VDMOVS_W4;
+            ip->inst[2] = -ig->reg;
+            ip->inst[3] = ip->inst[1]; /* made dest in use too */
+            break;
+         case VDLDS_W2:
+            #ifdef X86
+               k = ig->reg;
+               if (k >= DREGBEG && k < DREGEND)
+                  k = k - DREGBEG + VDREGBEG;
+               if (k != -ip->inst[1])
+                  CalcThisUseSet(InsNewInst(NULL, NULL, ip, VDZERO_W2, 
+                                    ip->inst[1], 0, 0));
+            #endif
+            ip->inst[0] = VDMOVS_W2;
+            ip->inst[2] = -ig->reg;
+            ip->inst[3] = ip->inst[1]; /* made dest in use too */
+            break;
+         case VFLDS_W16:
             #ifdef X86
                k = ig->reg;
                if (k >= FREGBEG && k < FREGEND)
                   k = k - FREGBEG + VFREGBEG;
                if (k != -ip->inst[1])
-                  CalcThisUseSet(InsNewInst(NULL, NULL, ip, VFZERO, 
+                  CalcThisUseSet(InsNewInst(NULL, NULL, ip, VFZERO_W16, 
                                     ip->inst[1], 0, 0));
             #endif
-            ip->inst[0] = VFMOVS;
+            ip->inst[0] = VFMOVS_W16;
+            ip->inst[2] = -ig->reg;
+            ip->inst[3] = ip->inst[1]; /* made dest in use too */
+            break;
+         case VFLDS_W8:
+            #ifdef X86
+               k = ig->reg;
+               if (k >= FREGBEG && k < FREGEND)
+                  k = k - FREGBEG + VFREGBEG;
+               if (k != -ip->inst[1])
+                  CalcThisUseSet(InsNewInst(NULL, NULL, ip, VFZERO_W8, 
+                                    ip->inst[1], 0, 0));
+            #endif
+            ip->inst[0] = VFMOVS_W8;
+            ip->inst[2] = -ig->reg;
+            ip->inst[3] = ip->inst[1]; /* made dest in use too */
+            break;
+         case VFLDS_W4:
+            #ifdef X86
+               k = ig->reg;
+               if (k >= FREGBEG && k < FREGEND)
+                  k = k - FREGBEG + VFREGBEG;
+               if (k != -ip->inst[1])
+                  CalcThisUseSet(InsNewInst(NULL, NULL, ip, VFZERO_W4, 
+                                    ip->inst[1], 0, 0));
+            #endif
+            ip->inst[0] = VFMOVS_W4;
             ip->inst[2] = -ig->reg;
             ip->inst[3] = ip->inst[1]; /* made dest in use too */
             break;
@@ -1779,19 +1858,46 @@ int VarUse2RegUse(IGNODE *ig, BBLOCK *blk, INSTQ *instbeg, INSTQ *instend)
             ip->inst[0] = VMOVS;
             ip->inst[2] = -ig->reg;
             break;*/
-         case VSLDS:
-            assert(0);
+         case VSLDS_W16: case VSLDS_W8: case VSLDS_W4: 
+            fko_error(__LINE__, 
+                  "Don't use VSLDS in LIL, substitute it with VSMOVS, CVTSI");
             break;
-         case VILDS:
+         case VILDS_W8:
             #ifdef X86
                k = ig->reg;
                if (k >= IREGBEG && k < IREGEND)
                   k = k - IREGBEG + VIREGBEG;
                if (k != -ip->inst[1])
-                  CalcThisUseSet(InsNewInst(NULL, NULL, ip, VIZERO, 
+                  CalcThisUseSet(InsNewInst(NULL, NULL, ip, VIZERO_W8, 
                                     ip->inst[1], 0, 0));
             #endif
-            ip->inst[0] = VIMOVS;
+            ip->inst[0] = VIMOVS_W8;
+            ip->inst[2] = -ig->reg;
+            ip->inst[3] = ip->inst[1];
+            break;
+         case VILDS_W4:
+            #ifdef X86
+               k = ig->reg;
+               if (k >= IREGBEG && k < IREGEND)
+                  k = k - IREGBEG + VIREGBEG;
+               if (k != -ip->inst[1])
+                  CalcThisUseSet(InsNewInst(NULL, NULL, ip, VIZERO_W4, 
+                                    ip->inst[1], 0, 0));
+            #endif
+            ip->inst[0] = VIMOVS_W4;
+            ip->inst[2] = -ig->reg;
+            ip->inst[3] = ip->inst[1];
+            break;
+         case VILDS_W2:
+            #ifdef X86
+               k = ig->reg;
+               if (k >= IREGBEG && k < IREGEND)
+                  k = k - IREGBEG + VIREGBEG;
+               if (k != -ip->inst[1])
+                  CalcThisUseSet(InsNewInst(NULL, NULL, ip, VIZERO_W2, 
+                                    ip->inst[1], 0, 0));
+            #endif
+            ip->inst[0] = VIMOVS_W2;
             ip->inst[2] = -ig->reg;
             ip->inst[3] = ip->inst[1];
             break;
@@ -1811,6 +1917,126 @@ int VarUse2RegUse(IGNODE *ig, BBLOCK *blk, INSTQ *instbeg, INSTQ *instend)
    return(CHANGE);
 }
 
+enum inst Vst2Mov(enum inst vst)
+{
+   enum inst vmov; 
+
+   switch(vst)
+   {
+      case VFST_W16: 
+         vmov = VFMOV_W16;
+         break;
+      case VFST_W8: 
+         vmov = VFMOV_W8;
+         break;
+      case VFST_W4: 
+         vmov = VFMOV_W4;
+         break;
+      case VFSTU_W16: 
+         vmov = VFMOV_W16;
+         break;
+      case VFSTU_W8: 
+         vmov = VFMOV_W8;
+         break;
+      case VFSTU_W4: 
+         vmov = VFMOV_W4;
+         break;
+      case VFSTS_W16: 
+         vmov = VFMOVS_W16;
+         break;
+      case VFSTS_W8: 
+         vmov = VFMOVS_W8;
+         break;
+      case VFSTS_W4: 
+         vmov = VFMOVS_W4;
+         break;
+      case VDST_W8: 
+         vmov = VDMOV_W8;
+         break;
+      case VDST_W4: 
+         vmov = VDMOV_W4;
+         break;
+      case VDST_W2: 
+         vmov = VDMOV_W2;
+         break;
+      case VDSTU_W8: 
+         vmov = VDMOV_W8;
+         break;
+      case VDSTU_W4: 
+         vmov = VDMOV_W4;
+         break;
+      case VDSTU_W2: 
+         vmov = VDMOV_W2;
+         break;
+      case VDSTS_W8: 
+         vmov = VDMOVS_W8;
+         break;
+      case VDSTS_W4: 
+         vmov = VDMOVS_W4;
+         break;
+      case VDSTS_W2: 
+         vmov = VDMOVS_W2;
+         break;
+      case VSST_W16: 
+         vmov = VSMOV_W16;
+         break;
+      case VSST_W8: 
+         vmov = VSMOV_W8;
+         break;
+      case VSST_W4: 
+         vmov = VSMOV_W4;
+      case VSSTU_W16: 
+         vmov = VSMOV_W16;
+         break;
+      case VSSTU_W8: 
+         vmov = VSMOV_W8;
+         break;
+      case VSSTU_W4: 
+         vmov = VSMOV_W4;
+         break;
+      case VSSTS_W16: 
+         vmov = VSMOVS_W16;
+         break;
+      case VSSTS_W8: 
+         vmov = VSMOVS_W8;
+         break;
+      case VSSTS_W4: 
+         vmov = VSMOVS_W4;
+         break;
+      case VIST_W8: 
+         vmov = VIMOV_W8;
+         break;
+      case VIST_W4: 
+         vmov = VIMOV_W4;
+         break;
+      case VIST_W2: 
+         vmov = VIMOV_W2;
+         break;
+      case VISTU_W8: 
+         vmov = VIMOV_W8;
+         break;
+      case VISTU_W4: 
+         vmov = VIMOV_W4;
+         break;
+      case VISTU_W2: 
+         vmov = VIMOV_W2;
+         break;
+      case VISTS_W8: 
+         vmov = VIMOVS_W8;
+         break;
+      case VISTS_W4: 
+         vmov = VIMOVS_W4;
+         break;
+      case VISTS_W2: 
+         vmov = VIMOVS_W2;
+         break;
+      defualt: 
+         fko_error(__LINE__, "Unknown VST inst\n");
+         break;
+   }
+   return(vmov);
+}
+
 int DoRegAsgTransforms(IGNODE *ig)
 /*
  * Given the fully qualified IG, perform all of the code transformations for
@@ -1818,6 +2044,7 @@ int DoRegAsgTransforms(IGNODE *ig)
  * register moves, and hoist ld and/or push stores for blocks not in scope
  */
 {
+   short ne;
    INSTQ *ip;
    BLIST *bl;
    enum inst mov, ld, st, inst, sts, movs;
@@ -1828,6 +2055,8 @@ int DoRegAsgTransforms(IGNODE *ig)
 /*
  * NOTE: In vector-to-scalar reduction, scalar value may be stored by a 
  * V2SST (vector to scalar store inst). so, we need sts for scalar value type.
+ * NOTE: handled in Vst2Mov
+ * NOTE: by default, we are vector inst of max width supported in the arch
  */
    i = STflag[ig->var-1];
    switch(FLAG2PTYPE(i))
@@ -1837,46 +2066,96 @@ int DoRegAsgTransforms(IGNODE *ig)
       mov = MOVS;
       ld  = LDS;
       st  = STS;
-      sts = VSSTS;
-      movs = VSMOVS;
       break;
 #endif
    case T_INT:
       mov = MOV;
       ld  = LD;
       st  = ST;
-      sts = VISTS;
-      movs = VIMOVS;
       break;
    case T_FLOAT:
       mov = FMOV;
       ld  = FLD;
       st  = FST;
-      sts = VFSTS;
-      movs = VFMOVS;
       break;
    case T_DOUBLE:
       mov = FMOVD;
       ld  = FLDD;
       st  = FSTD;
-      sts = VDSTS;
-      movs = VDMOVS;
       break;
+  /* selecting vector with max width when needs conversion */    
    case T_VDOUBLE:
-      mov = VDMOV;
-      ld  = VDLD;
-      st  = VDST;
+      ne = vtype2elem(T_VDOUBLE); 
+      if (ne == 8)
+      {
+         mov = VDMOV_W8;
+         ld  = VDLD_W8;
+         st  = VDST_W8;
+      }
+      else if (ne == 4)
+      {
+         mov = VDMOV_W4;
+         ld  = VDLD_W4;
+         st  = VDST_W4;
+      }
+      else if (ne == 2)
+      {
+         mov = VDMOV_W2;
+         ld  = VDLD_W2;
+         st  = VDST_W2;
+      }
+      else
+         fko_error(__LINE__, "Unknown vector width = %d", ne);
       break;
    case T_VFLOAT:
-      mov = VFMOV;
-      ld  = VFLD;
-      st  = VFST;
+      ne = vtype2elem(T_VFLOAT); 
+      if (ne == 16)
+      {
+         mov = VFMOV_W16;
+         ld  = VFLD_W16;
+         st  = VFST_W16;
+      }
+      else if (ne == 8)
+      {
+         mov = VFMOV_W8;
+         ld  = VFLD_W8;
+         st  = VFST_W8;
+      }
+      else if (ne == 4)
+      {
+         mov = VFMOV_W4;
+         ld  = VFLD_W4;
+         st  = VFST_W4;
+      }
+      else
+         fko_error(__LINE__, "Unknown vector width = %d", ne);
       break;
 #if 1
+/*
+ * FIXME: not considered short int type, no explicit support for this type
+ */
    case T_VINT:
-      mov = VMOV;
-      ld  = VLD;
-      st  = VST;
+      ne = vtype2elem(T_VINT); 
+      if (ne == 8)
+      {
+         mov = VIMOV_W8;
+         ld  = VILD_W8;
+         st  = VIST_W8;
+      }
+      else if (ne == 4)
+      {
+         mov = VIMOV_W4;
+         ld  = VILD_W4;
+         st  = VIST_W4;
+      }
+      else if (ne == 2)
+      {
+         mov = VIMOV_W2;
+         ld  = VILD_W2;
+         st  = VIST_W2;
+      }
+      else
+         fko_error(__LINE__, "Unknown vector width = %d", ne);
       break;
 #endif
    default:
@@ -1908,7 +2187,16 @@ int DoRegAsgTransforms(IGNODE *ig)
 /*
  *       If Store is of same type as variable, we just change to reg-reg move
  */
-         if (inst == st)
+         if (IS_VSTORE(inst)) /* vector store, including V2SST */
+         {
+            mov = Vst2Mov(inst);
+            ip->inst[0] = mov;
+            ip->inst[1] = -ig->reg;
+         }
+/*
+ *       If Store is of same type as variable, we just change to reg-reg move
+ */
+         else if (inst == st) /* scalar store  */
          {
             ip->inst[0] = mov;
             ip->inst[1] = -ig->reg;
@@ -1916,7 +2204,7 @@ int DoRegAsgTransforms(IGNODE *ig)
 /*
  *       Majedul: If we have vector to scalar store, we can use movs
  */
-#if 1         
+#if 0         
          else if (IS_V2SST(inst) && inst == sts)
          {
             ip->inst[0] = movs;
@@ -1926,6 +2214,8 @@ int DoRegAsgTransforms(IGNODE *ig)
 /*
  *       If Store is of different type than variable (eg., fpconst init),
  *       we must insert a ld inst to the LR register
+ *       NOTE: for vector, we are using load with max width here... like: 
+ *       AVX512, VFLD_W16, VDLD_W8, etc.
  */
          else
          {
@@ -2377,7 +2667,9 @@ void FindInitRegUsage(BLIST *bp, short *iregs, short *fregs, short *dregs)
    }
    free(sp);
 }
-
+/*
+ * NOTE: no more used... was used only in DoLoopGlobalRegAssignment()
+ */
 int LoadStoreToMove(BLIST *blocks, int n, short *vars, short *regs)
 /*
  * Replaces all loads and stores of vars in blocks with MOVs from the
@@ -2414,7 +2706,7 @@ int LoadStoreToMove(BLIST *blocks, int n, short *vars, short *regs)
          case LD:
          case FLD:
          case FLDD:
-         case VFLD:
+         /*case VFLD:*/
 /* 
  *       See if variable being loaded from (inst[2]) is one of our targets
  *       change LD instruction to MOV instruction
@@ -2436,7 +2728,7 @@ int LoadStoreToMove(BLIST *blocks, int n, short *vars, short *regs)
          case ST:
          case FST:
          case FSTD:
-         case VFST:
+         /*case VFST:*/
 /* 
  *       See if variable being stored to (inst[1]) is one of our targets
  *       change ST instruction to MOV instruction
@@ -3306,7 +3598,7 @@ int DoEnforceLoadStore(BLIST *scope)
  *          Majedul: I skipped the update of the 2nd src operand
  *          from here, added a new function to reveal this kind of arch event
  */
-            #if defined(X86) && 0 
+            #if 0 
                if (ip->inst[3] >= 0)
                {
                if (inst == FABS)
@@ -3328,8 +3620,7 @@ int DoEnforceLoadStore(BLIST *scope)
  *             with special case, since they are hybrid now, dest reg 
  *             is not same with src regs!
  */
-               if (inst == VFSABS || inst == VDSABS || inst == VFSNEG || 
-                     inst == VDSNEG )
+               if (IS_VSABS(inst) || IS_VSNEG(inst) )
                   continue;
             #endif
             if (!op)
@@ -3351,6 +3642,11 @@ int DoEnforceLoadStore(BLIST *scope)
                assert(ip->inst[1] < 0);  /* dest op must be register */
                j = ireg2type(-ip->inst[1]);
                ir = GetRegFindLR(j, FKO_BVTMP, ip);
+/*
+ *             NOTE: need to find a way to find the width of vector inst... 
+ *             use that to figure out specific vload !!!!
+ */
+/* =======================================================================*/
                if (ir)
                {
                   switch(j)
